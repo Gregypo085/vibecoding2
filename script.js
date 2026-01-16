@@ -44,6 +44,7 @@ class ProceduralMusicEngine {
     // Initialize Tone.js audio context and instruments
     async init() {
         console.log('[ProceduralEngine] Initializing...');
+        updateStatus('Loading audio...');
 
         // Create master volume
         this.volumes.master = new Tone.Volume(-10).toDestination();
@@ -54,28 +55,37 @@ class ProceduralMusicEngine {
         this.volumes.arp = new Tone.Volume(-8).connect(this.volumes.master);
         this.volumes.drums = new Tone.Volume(-6).connect(this.volumes.master);
 
-        // Create sampler for arp using your Lead Synth Anjuna samples
-        // Note: # characters URL-encoded as %23 (like we did in Dreams project)
-        this.synths.arp = new Tone.Sampler({
-            urls: {
-                'C3': 'audio/samples/Lead Synth Anjuna/ogg/C3.ogg',
-                'C#3': 'audio/samples/Lead Synth Anjuna/ogg/C%233.ogg',
-                'D3': 'audio/samples/Lead Synth Anjuna/ogg/D3.ogg',
-                'D#3': 'audio/samples/Lead Synth Anjuna/ogg/D%233.ogg',
-                'E3': 'audio/samples/Lead Synth Anjuna/ogg/E3.ogg',
-                'F3': 'audio/samples/Lead Synth Anjuna/ogg/F3.ogg',
-                'F#3': 'audio/samples/Lead Synth Anjuna/ogg/F%233.ogg',
-                'G3': 'audio/samples/Lead Synth Anjuna/ogg/G3.ogg',
-                'G#3': 'audio/samples/Lead Synth Anjuna/ogg/G%233.ogg',
-                'A3': 'audio/samples/Lead Synth Anjuna/ogg/A3.ogg',
-                'A#3': 'audio/samples/Lead Synth Anjuna/ogg/A%233.ogg',
-                'B3': 'audio/samples/Lead Synth Anjuna/ogg/B3.ogg',
-                'C4': 'audio/samples/Lead Synth Anjuna/ogg/C4.ogg'
-            },
-            onload: function() {
-                console.log('[ProceduralEngine] Lead Synth Anjuna samples loaded!');
-            }
-        }).connect(this.volumes.arp);
+        // Create sampler for arp using your LeadSynthAnjuna samples
+        // Tone.js will handle URL encoding automatically - use literal filenames
+        const self = this;
+        this.synths.arp = await new Promise((resolve) => {
+            const sampler = new Tone.Sampler({
+                urls: {
+                    'C3': 'audio/samples/LeadSynthAnjuna/ogg/C3.ogg',
+                    'C#3': 'audio/samples/LeadSynthAnjuna/ogg/C#3.ogg',
+                    'D3': 'audio/samples/LeadSynthAnjuna/ogg/D3.ogg',
+                    'D#3': 'audio/samples/LeadSynthAnjuna/ogg/D#3.ogg',
+                    'E3': 'audio/samples/LeadSynthAnjuna/ogg/E3.ogg',
+                    'F3': 'audio/samples/LeadSynthAnjuna/ogg/F3.ogg',
+                    'F#3': 'audio/samples/LeadSynthAnjuna/ogg/F#3.ogg',
+                    'G3': 'audio/samples/LeadSynthAnjuna/ogg/G3.ogg',
+                    'G#3': 'audio/samples/LeadSynthAnjuna/ogg/G#3.ogg',
+                    'A3': 'audio/samples/LeadSynthAnjuna/ogg/A3.ogg',
+                    'A#3': 'audio/samples/LeadSynthAnjuna/ogg/A#3.ogg',
+                    'B3': 'audio/samples/LeadSynthAnjuna/ogg/B3.ogg',
+                    'C4': 'audio/samples/LeadSynthAnjuna/ogg/C4.ogg'
+                },
+                onload: function() {
+                    console.log('[ProceduralEngine] Lead Synth Anjuna samples loaded!');
+                    updateStatus('Samples loaded - Ready to play');
+                    resolve(sampler);
+                },
+                onerror: function(error) {
+                    console.error('[ProceduralEngine] Error loading samples:', error);
+                    updateStatus('Error loading samples - check console');
+                }
+            }).connect(self.volumes.arp);
+        });
 
         // Synths for bass, pad, drums (proof of concept - can be replaced with samples later)
         this.synths.bass = new Tone.MonoSynth({
@@ -94,6 +104,8 @@ class ProceduralMusicEngine {
 
         // Set initial scale
         this.updateScale(this.currentScale);
+
+        updateStatus('Ready - Click Start to generate music');
     }
 
     // Update the current scale and regenerate patterns
@@ -122,33 +134,41 @@ class ProceduralMusicEngine {
 
         // Generate bass pattern (root notes, low octave)
         const bassNotes = this.generateBassPattern();
+        console.log('[ProceduralEngine] Bass pattern:', bassNotes);
         const self = this;
         this.patterns.bass = new Tone.Sequence((time, note) => {
             if (self.enabled.bass && note) {
+                console.log('[Bass] Playing:', note, 'at', time);
                 self.synths.bass.triggerAttackRelease(note, '4n', time);
             }
         }, bassNotes, '2n');
 
         // Generate pad pattern (chords, mid octave)
         const padChords = this.generatePadPattern();
+        console.log('[ProceduralEngine] Pad pattern:', padChords);
         this.patterns.pad = new Tone.Sequence((time, chord) => {
             if (self.enabled.pad && chord) {
+                console.log('[Pad] Playing:', chord, 'at', time);
                 self.synths.pad.triggerAttackRelease(chord, '2n', time);
             }
         }, padChords, '1m');
 
         // Generate arp pattern (melodic, high octave)
         const arpNotes = this.generateArpPattern();
+        console.log('[ProceduralEngine] Arp pattern:', arpNotes);
         this.patterns.arp = new Tone.Sequence((time, note) => {
             if (self.enabled.arp && note) {
+                console.log('[Arp] Playing:', note, 'at', time);
                 self.synths.arp.triggerAttackRelease(note, '16n', time);
             }
         }, arpNotes, '16n');
 
         // Generate drum pattern (kick on beats)
         const drumPattern = [null, 'C1', null, null, null, 'C1', null, null];
+        console.log('[ProceduralEngine] Drum pattern:', drumPattern);
         this.patterns.drums = new Tone.Sequence((time, note) => {
             if (self.enabled.drums && note) {
+                console.log('[Drums] Playing:', note, 'at', time);
                 self.synths.drums.triggerAttackRelease(note, '8n', time);
             }
         }, drumPattern, '8n');
@@ -199,7 +219,7 @@ class ProceduralMusicEngine {
 
     // Generate arp pattern (melodic notes)
     generateArpPattern() {
-        const arpOctave = '4';
+        const arpOctave = '3';  // Changed to 3 to match your sample range (C3-C4)
 
         // Create a procedural melody using scale degrees
         const scaleWithOctave = this.scaleNotes.map(note => note + arpOctave);
@@ -215,10 +235,24 @@ class ProceduralMusicEngine {
 
     // Start all pattern sequences
     startPatterns() {
-        if (this.patterns.bass) this.patterns.bass.start(0);
-        if (this.patterns.pad) this.patterns.pad.start(0);
-        if (this.patterns.arp) this.patterns.arp.start(0);
-        if (this.patterns.drums) this.patterns.drums.start(0);
+        console.log('[ProceduralEngine] Starting all patterns...');
+        if (this.patterns.bass) {
+            this.patterns.bass.start(0);
+            console.log('[ProceduralEngine] Bass pattern started');
+        }
+        if (this.patterns.pad) {
+            this.patterns.pad.start(0);
+            console.log('[ProceduralEngine] Pad pattern started');
+        }
+        if (this.patterns.arp) {
+            this.patterns.arp.start(0);
+            console.log('[ProceduralEngine] Arp pattern started');
+        }
+        if (this.patterns.drums) {
+            this.patterns.drums.start(0);
+            console.log('[ProceduralEngine] Drums pattern started');
+        }
+        console.log('[ProceduralEngine] All patterns started');
     }
 
     // Stop all pattern sequences
@@ -235,9 +269,15 @@ class ProceduralMusicEngine {
 
         await Tone.start();
         console.log('[ProceduralEngine] Starting playback...');
+        console.log('[ProceduralEngine] Audio context state:', Tone.context.state);
 
         this.isPlaying = true;
+
+        // Set tempo
+        Tone.Transport.bpm.value = 90;
         Tone.Transport.start();
+
+        console.log('[ProceduralEngine] Transport started at BPM:', Tone.Transport.bpm.value);
 
         // Generate and start patterns
         this.regeneratePatterns();
