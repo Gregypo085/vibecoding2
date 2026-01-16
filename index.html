@@ -3,15 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VibeCoding - Generative Focus Music</title>
+    <title>VibeCoding 2 - Procedural Music Generator</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <!-- Tone.js for audio playback and synthesis -->
+    <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+    <!-- Tonal.js for music theory -->
+    <script src="https://cdn.jsdelivr.net/npm/@tonaljs/tonal@4.10.0/build/es5.min.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>VibeCoding</h1>
-            <p class="subtitle">Generative ambient music for deep work</p>
+            <h1>VibeCoding 2</h1>
+            <p class="subtitle">Procedural music generation experiments</p>
         </header>
 
         <main>
@@ -20,13 +24,16 @@
                 <button id="playPause" class="main-button">Start</button>
 
                 <div class="control-group">
-                    <label for="keySelect">Key:</label>
+                    <label for="keySelect">Key/Scale:</label>
                     <select id="keySelect">
-                        <option value="c">C Major</option>
-                        <option value="d">D Major</option>
-                        <option value="e">E Major</option>
-                        <option value="g">G Major</option>
-                        <option value="a">A Minor</option>
+                        <option value="C major">C Major</option>
+                        <option value="D major">D Major</option>
+                        <option value="E major">E Major</option>
+                        <option value="G major">G Major</option>
+                        <option value="A minor" selected>A Minor</option>
+                        <option value="C minor">C Minor</option>
+                        <option value="E minor">E Minor</option>
+                        <option value="D minor">D Minor</option>
                     </select>
                 </div>
 
@@ -82,11 +89,12 @@
 
             <!-- Info Section -->
             <section class="info">
-                <p class="status" id="status">Load audio files to begin</p>
+                <p class="status" id="status">Click Start to begin procedural generation</p>
                 <details>
                     <summary>How it works</summary>
-                    <p>VibeCoding layers musical elements that fade in and out to create ever-evolving ambient soundscapes. Toggle stems on/off to control which elements can appear, or adjust their volumes for the perfect mix.Currently in proof-of-concept mode - more keys and probability-based generation coming soon.</p>
-                    <p>Everything stays in sync - no more timing issues when bringing elements in and out.</p>
+                    <p>VibeCoding 2 uses <strong>Tone.js</strong> and <strong>Tonal.js</strong> to procedurally generate music. Select a key/scale, and the system will algorithmically choose notes from that scale to create evolving patterns.</p>
+                    <p><strong>Phase 2 Prototype:</strong> This demonstrates the core concept - you can create single-note samples in your DAW, and the system will stack them into chords and patterns based on music theory rules.</p>
+                    <p><strong>Current demo:</strong> Uses built-in Tone.js synths as a proof-of-concept. Once you create sample libraries in each key, we'll swap these out for your actual sounds.</p>
                 </details>
             </section>
         </main>

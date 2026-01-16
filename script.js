@@ -1,260 +1,302 @@
-// VibeCoding - Web Audio Engine
-class VibeCodingEngine {
+// VibeCoding 2 - Procedural Music Generator
+// Using Tone.js for audio and Tonal.js for music theory
+
+class ProceduralMusicEngine {
     constructor() {
-        this.audioContext = null;
-        this.masterGain = null;
-        this.stems = {
-            drums: { buffer: null, source: null, gain: null, enabled: true },
-            bass: { buffer: null, source: null, gain: null, enabled: true },
-            pad: { buffer: null, source: null, gain: null, enabled: true },
-            arp: { buffer: null, source: null, gain: null, enabled: true }
-        };
-        this.currentKey = 'c';
         this.isPlaying = false;
-        this.fadeTime = 2.0; // Seconds for fade in/out
+        this.currentScale = 'A minor';
+        this.scaleNotes = [];
+
+        // Tone.js synths (proof of concept - will be replaced with samples)
+        this.synths = {
+            bass: null,
+            pad: null,
+            arp: null,
+            drums: null
+        };
+
+        // Volume controls
+        this.volumes = {
+            master: null,
+            bass: null,
+            pad: null,
+            arp: null,
+            drums: null
+        };
+
+        // Pattern sequences
+        this.patterns = {
+            bass: null,
+            pad: null,
+            arp: null,
+            drums: null
+        };
+
+        // Enable/disable state
+        this.enabled = {
+            bass: true,
+            pad: true,
+            arp: true,
+            drums: true
+        };
     }
 
-    // Initialize Web Audio Context
-    init() {
-        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        this.masterGain = this.audioContext.createGain();
-        this.masterGain.connect(this.audioContext.destination);
+    // Initialize Tone.js audio context and instruments
+    async init() {
+        console.log('[ProceduralEngine] Initializing...');
 
-        // Create gain nodes for each stem
-        Object.keys(this.stems).forEach(stemName => {
-            this.stems[stemName].gain = this.audioContext.createGain();
-            this.stems[stemName].gain.gain.value = 0; // Start silent
-            this.stems[stemName].gain.connect(this.masterGain);
-        });
+        // Create master volume
+        this.volumes.master = new Tone.Volume(-10).toDestination();
+
+        // Create individual volume controls
+        this.volumes.bass = new Tone.Volume(0).connect(this.volumes.master);
+        this.volumes.pad = new Tone.Volume(-6).connect(this.volumes.master);
+        this.volumes.arp = new Tone.Volume(-8).connect(this.volumes.master);
+        this.volumes.drums = new Tone.Volume(-6).connect(this.volumes.master);
+
+        // Create synths (proof of concept)
+        this.synths.bass = new Tone.MonoSynth({
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.1, decay: 0.3, sustain: 0.4, release: 1.2 }
+        }).connect(this.volumes.bass);
+
+        this.synths.pad = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'triangle' },
+            envelope: { attack: 1.5, decay: 1, sustain: 0.7, release: 2 }
+        }).connect(this.volumes.pad);
+
+        this.synths.arp = new Tone.Synth({
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.4 }
+        }).connect(this.volumes.arp);
+
+        this.synths.drums = new Tone.MembraneSynth().connect(this.volumes.drums);
+
+        console.log('[ProceduralEngine] Audio initialized');
+
+        // Set initial scale
+        this.updateScale(this.currentScale);
     }
 
-    // Load audio file
-    async loadAudio(stemName, key) {
-        const url = `audio/key-${key}/${stemName}.ogg`;
+    // Update the current scale and regenerate patterns
+    updateScale(scaleName) {
+        console.log('[ProceduralEngine] Updating scale to: ' + scaleName);
+        this.currentScale = scaleName;
 
-        try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+        // Use Tonal.js to get the scale notes
+        const scale = Tonal.Scale.get(scaleName);
+        this.scaleNotes = scale.notes;
+
+        console.log('[ProceduralEngine] Scale notes:', this.scaleNotes);
+
+        // Regenerate patterns based on new scale
+        if (this.isPlaying) {
+            this.regeneratePatterns();
+        }
+    }
+
+    // Generate procedural patterns based on the current scale
+    regeneratePatterns() {
+        console.log('[ProceduralEngine] Generating new patterns...');
+
+        // Stop existing patterns
+        this.stopPatterns();
+
+        // Generate bass pattern (root notes, low octave)
+        const bassNotes = this.generateBassPattern();
+        const self = this;
+        this.patterns.bass = new Tone.Sequence((time, note) => {
+            if (self.enabled.bass && note) {
+                self.synths.bass.triggerAttackRelease(note, '4n', time);
             }
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
-            this.stems[stemName].buffer = audioBuffer;
-            return true;
-        } catch (error) {
-            console.error(`Error loading ${stemName} for key ${key}:`, error);
-            return false;
-        }
+        }, bassNotes, '2n');
+
+        // Generate pad pattern (chords, mid octave)
+        const padChords = this.generatePadPattern();
+        this.patterns.pad = new Tone.Sequence((time, chord) => {
+            if (self.enabled.pad && chord) {
+                self.synths.pad.triggerAttackRelease(chord, '2n', time);
+            }
+        }, padChords, '1m');
+
+        // Generate arp pattern (melodic, high octave)
+        const arpNotes = this.generateArpPattern();
+        this.patterns.arp = new Tone.Sequence((time, note) => {
+            if (self.enabled.arp && note) {
+                self.synths.arp.triggerAttackRelease(note, '16n', time);
+            }
+        }, arpNotes, '16n');
+
+        // Generate drum pattern (kick on beats)
+        const drumPattern = [null, 'C1', null, null, null, 'C1', null, null];
+        this.patterns.drums = new Tone.Sequence((time, note) => {
+            if (self.enabled.drums && note) {
+                self.synths.drums.triggerAttackRelease(note, '8n', time);
+            }
+        }, drumPattern, '8n');
+
+        // Start all patterns
+        this.startPatterns();
     }
 
-    // Load all audio for a key
-    async loadKey(key) {
-        this.currentKey = key;
-        updateStatus('Loading audio files...');
+    // Generate bass pattern (root notes, lower octave)
+    generateBassPattern() {
+        const bassOctave = '2';
 
-        const loadPromises = Object.keys(this.stems).map(stemName =>
-            this.loadAudio(stemName, key)
-        );
+        // Simple pattern: play root and fifth
+        const root = this.scaleNotes[0] + bassOctave;
+        const fifth = this.scaleNotes[4] ? this.scaleNotes[4] + bassOctave : root;
 
-        const results = await Promise.all(loadPromises);
-        const allLoaded = results.every(result => result === true);
-
-        if (allLoaded) {
-            updateStatus('Ready to play');
-            return true;
-        } else {
-            updateStatus('Error loading some audio files. Check console for details.');
-            return false;
-        }
+        return [root, null, fifth, null, root, null, fifth, null];
     }
 
-    // Start playback for a stem
-    playStem(stemName) {
-        const stem = this.stems[stemName];
+    // Generate pad pattern (chords)
+    generatePadPattern() {
+        const chordOctave = '3';
 
-        if (!stem.buffer) {
-            console.error(`No buffer loaded for ${stemName}`);
-            return;
-        }
+        // Build triads from scale degrees
+        // I chord (1-3-5)
+        const chord1 = [
+            this.scaleNotes[0] + chordOctave,
+            this.scaleNotes[2] + chordOctave,
+            this.scaleNotes[4] + chordOctave
+        ];
 
-        // Stop existing source if playing
-        if (stem.source) {
-            stem.source.stop();
-        }
+        // IV chord (4-6-1)
+        const chord2 = [
+            this.scaleNotes[3] + chordOctave,
+            this.scaleNotes[5] + chordOctave,
+            this.scaleNotes[0] + String(parseInt(chordOctave) + 1)
+        ];
 
-        // Create new source
-        stem.source = this.audioContext.createBufferSource();
-        stem.source.buffer = stem.buffer;
-        stem.source.loop = true;
-        stem.source.connect(stem.gain);
-        stem.source.start(0);
+        // V chord (5-7-2)
+        const chord3 = [
+            this.scaleNotes[4] + chordOctave,
+            this.scaleNotes[6] + chordOctave,
+            this.scaleNotes[1] + String(parseInt(chordOctave) + 1)
+        ];
+
+        return [chord1, chord2, chord3, chord1];
     }
 
-    // Stop playback for a stem
-    stopStem(stemName) {
-        const stem = this.stems[stemName];
-        if (stem.source) {
-            stem.source.stop();
-            stem.source = null;
-        }
+    // Generate arp pattern (melodic notes)
+    generateArpPattern() {
+        const arpOctave = '4';
+
+        // Create a procedural melody using scale degrees
+        const scaleWithOctave = this.scaleNotes.map(note => note + arpOctave);
+
+        // Simple pattern: ascend and descend through scale
+        return [
+            scaleWithOctave[0], scaleWithOctave[2], scaleWithOctave[4],
+            scaleWithOctave[2], scaleWithOctave[0], scaleWithOctave[4],
+            scaleWithOctave[2], scaleWithOctave[0], null, null, null, null,
+            null, null, null, null
+        ];
     }
 
-    // Fade in a stem
-    fadeIn(stemName, targetVolume = 0.8) {
-        const stem = this.stems[stemName];
-        const currentTime = this.audioContext.currentTime;
-
-        stem.gain.gain.cancelScheduledValues(currentTime);
-        stem.gain.gain.setValueAtTime(stem.gain.gain.value, currentTime);
-        stem.gain.gain.linearRampToValueAtTime(targetVolume, currentTime + this.fadeTime);
+    // Start all pattern sequences
+    startPatterns() {
+        if (this.patterns.bass) this.patterns.bass.start(0);
+        if (this.patterns.pad) this.patterns.pad.start(0);
+        if (this.patterns.arp) this.patterns.arp.start(0);
+        if (this.patterns.drums) this.patterns.drums.start(0);
     }
 
-    // Fade out a stem (mute it without stopping)
-    fadeOut(stemName) {
-        const stem = this.stems[stemName];
-        const currentTime = this.audioContext.currentTime;
-
-        stem.gain.gain.cancelScheduledValues(currentTime);
-        stem.gain.gain.setValueAtTime(stem.gain.gain.value, currentTime);
-        stem.gain.gain.linearRampToValueAtTime(0, currentTime + this.fadeTime);
+    // Stop all pattern sequences
+    stopPatterns() {
+        if (this.patterns.bass) this.patterns.bass.stop();
+        if (this.patterns.pad) this.patterns.pad.stop();
+        if (this.patterns.arp) this.patterns.arp.stop();
+        if (this.patterns.drums) this.patterns.drums.stop();
     }
 
-    // Toggle a stem on/off (mute/unmute)
-    toggleStem(stemName, enabled) {
-        this.stems[stemName].enabled = enabled;
-
-        if (!this.isPlaying) return;
-
-        if (enabled) {
-            // Fade in to the slider's current volume
-            const volumeSlider = document.getElementById(`${stemName}Volume`);
-            const targetVolume = volumeSlider ? parseFloat(volumeSlider.value) : 0.8;
-            this.fadeIn(stemName, targetVolume);
-        } else {
-            // Fade out to silence (but keep playing)
-            this.fadeOut(stemName);
-        }
-    }
-
-    // Set stem volume
-    setStemVolume(stemName, volume) {
-        const stem = this.stems[stemName];
-        // Update volume if gain node exists and audio context is running
-        if (stem.gain && this.audioContext) {
-            const currentTime = this.audioContext.currentTime;
-            stem.gain.gain.cancelScheduledValues(currentTime);
-            stem.gain.gain.setValueAtTime(stem.gain.gain.value, currentTime);
-            stem.gain.gain.linearRampToValueAtTime(volume, currentTime + 0.1);
-        }
-    }
-
-    // Set master volume
-    setMasterVolume(volume) {
-        const currentTime = this.audioContext.currentTime;
-        this.masterGain.gain.cancelScheduledValues(currentTime);
-        this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, currentTime);
-        this.masterGain.gain.linearRampToValueAtTime(volume, currentTime + 0.1);
-    }
-
-    // Start all stems simultaneously (synced)
-    start() {
+    // Start playback
+    async start() {
         if (this.isPlaying) return;
 
+        await Tone.start();
+        console.log('[ProceduralEngine] Starting playback...');
+
         this.isPlaying = true;
+        Tone.Transport.start();
 
-        // Start ALL stems at the same time for perfect sync
-        Object.keys(this.stems).forEach(stemName => {
-            this.playStem(stemName);
+        // Generate and start patterns
+        this.regeneratePatterns();
 
-            // If enabled, fade in to target volume; otherwise stay silent
-            const stem = this.stems[stemName];
-            if (stem.enabled) {
-                const volumeSlider = document.getElementById(`${stemName}Volume`);
-                const targetVolume = volumeSlider ? parseFloat(volumeSlider.value) : 0.8;
-                this.fadeIn(stemName, targetVolume);
-            }
-            // If not enabled, gain is already at 0 so it stays silent
-        });
-
-        updateStatus('Playing...');
+        updateStatus('Generating music...');
     }
 
-    // Stop all stems
+    // Stop playback
     stop() {
         if (!this.isPlaying) return;
 
+        console.log('[ProceduralEngine] Stopping playback...');
+
         this.isPlaying = false;
-
-        // Fade out and then actually stop the sources
-        Object.keys(this.stems).forEach(stemName => {
-            this.fadeOut(stemName);
-        });
-
-        // Stop all sources after fade completes
-        setTimeout(() => {
-            Object.keys(this.stems).forEach(stemName => {
-                this.stopStem(stemName);
-            });
-        }, this.fadeTime * 1000);
+        this.stopPatterns();
+        Tone.Transport.stop();
 
         updateStatus('Stopped');
+    }
+
+    // Set master volume
+    setMasterVolume(value) {
+        if (this.volumes.master) {
+            // Convert 0-1 to decibels (-60 to 0)
+            const db = Tone.gainToDb(value);
+            this.volumes.master.volume.rampTo(db, 0.1);
+        }
+    }
+
+    // Set individual stem volume
+    setStemVolume(stem, value) {
+        if (this.volumes[stem]) {
+            const db = Tone.gainToDb(value);
+            this.volumes[stem].volume.rampTo(db, 0.1);
+        }
+    }
+
+    // Toggle stem on/off
+    toggleStem(stem, enabled) {
+        this.enabled[stem] = enabled;
+        console.log('[ProceduralEngine] ' + stem + ' ' + (enabled ? 'enabled' : 'disabled'));
     }
 }
 
 // Global engine instance
-const engine = new VibeCodingEngine();
+const engine = new ProceduralMusicEngine();
 
 // UI Helper Functions
 function updateStatus(message) {
     document.getElementById('status').textContent = message;
 }
 
-function updateVolumeDisplay(slider, value) {
-    // Find the volume-value span within the same parent container
-    const parent = slider.parentElement;
-    const valueSpan = parent.querySelector('.volume-value');
-    if (valueSpan) {
-        valueSpan.textContent = `${Math.round(value * 100)}%`;
-    }
-}
-
 // Initialize when page loads
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    console.log('[VibeCoding2] Page loaded, initializing...');
+
+    // Initialize engine
+    await engine.init();
+    updateStatus('Ready - Click Start to generate music');
+
     // Play/Pause Button
     const playPauseBtn = document.getElementById('playPause');
     playPauseBtn.addEventListener('click', async () => {
-        if (!engine.audioContext) {
-            engine.init();
-            await engine.loadKey(engine.currentKey);
-        }
-
         if (!engine.isPlaying) {
-            engine.start();
+            await engine.start();
             playPauseBtn.textContent = 'Stop';
-            playPauseBtn.classList.add('playing');
         } else {
             engine.stop();
             playPauseBtn.textContent = 'Start';
-            playPauseBtn.classList.remove('playing');
         }
     });
 
-    // Key Selector
+    // Key/Scale Selection
     const keySelect = document.getElementById('keySelect');
-    keySelect.addEventListener('change', async (e) => {
-        const wasPlaying = engine.isPlaying;
-
-        if (wasPlaying) {
-            engine.stop();
-        }
-
-        await engine.loadKey(e.target.value);
-
-        if (wasPlaying) {
-            setTimeout(() => {
-                engine.start();
-            }, engine.fadeTime * 1000);
-        }
+    keySelect.addEventListener('change', (e) => {
+        engine.updateScale(e.target.value);
+        updateStatus('Changed to ' + e.target.value);
     });
 
     // Master Volume
@@ -262,68 +304,40 @@ document.addEventListener('DOMContentLoaded', () => {
     const masterVolumeValue = document.getElementById('masterVolumeValue');
     masterVolume.addEventListener('input', (e) => {
         const value = parseFloat(e.target.value);
-        if (engine.audioContext) {
-            engine.setMasterVolume(value);
-        }
-        masterVolumeValue.textContent = `${Math.round(value * 100)}%`;
+        engine.setMasterVolume(value);
+        masterVolumeValue.textContent = Math.round(value * 100) + '%';
     });
 
-    // Stem Controls
-    document.querySelectorAll('.toggle-stem').forEach(button => {
-        const stemName = button.dataset.stem;
-        const indicator = document.querySelector(`.stem-indicator[data-stem="${stemName}"]`);
-
-        button.addEventListener('click', () => {
-            const isEnabled = !engine.stems[stemName].enabled;
-            engine.toggleStem(stemName, isEnabled);
-
-            if (isEnabled) {
-                button.textContent = 'Active';
-                button.classList.add('active');
-                if (engine.isPlaying) {
-                    indicator.classList.add('playing');
-                }
-            } else {
-                button.textContent = 'Muted';
-                button.classList.remove('active');
-                indicator.classList.remove('playing');
-            }
-        });
-    });
-
-    // Stem Volume Sliders
+    // Stem Volume Controls
     document.querySelectorAll('.stem-volume').forEach(slider => {
-        const stemName = slider.id.replace('Volume', '');
-        const button = document.querySelector(`.toggle-stem[data-stem="${stemName}"]`);
-        const indicator = document.querySelector(`.stem-indicator[data-stem="${stemName}"]`);
+        const stemName = slider.id.replace('Volume', '').toLowerCase();
+        const valueDisplay = slider.nextElementSibling;
 
         slider.addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
             engine.setStemVolume(stemName, value);
-            updateVolumeDisplay(slider, value);
+            valueDisplay.textContent = Math.round(value * 100) + '%';
 
-            // Auto-toggle mute/active based on volume
-            if (value === 0) {
-                // Volume at zero = muted
-                if (engine.stems[stemName].enabled) {
-                    engine.stems[stemName].enabled = false;
-                    button.textContent = 'Muted';
-                    button.classList.remove('active');
-                    indicator.classList.remove('playing');
-                }
-            } else {
-                // Volume above zero = active
-                if (!engine.stems[stemName].enabled) {
-                    engine.stems[stemName].enabled = true;
-                    button.textContent = 'Active';
-                    button.classList.add('active');
-                    if (engine.isPlaying) {
-                        indicator.classList.add('playing');
-                    }
-                }
+            // Auto-toggle stem based on volume
+            const toggleBtn = slider.parentElement.querySelector('.toggle-stem');
+            if (value === 0 && toggleBtn.classList.contains('active')) {
+                toggleBtn.click();
+            } else if (value > 0 && !toggleBtn.classList.contains('active')) {
+                toggleBtn.click();
             }
         });
     });
 
-    updateStatus('Click Start to begin');
+    // Stem Toggle Buttons
+    document.querySelectorAll('.toggle-stem').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const stem = btn.dataset.stem;
+            const isActive = btn.classList.toggle('active');
+
+            btn.textContent = isActive ? 'Active' : 'Muted';
+            engine.toggleStem(stem, isActive);
+        });
+    });
+
+    console.log('[VibeCoding2] Initialization complete');
 });
