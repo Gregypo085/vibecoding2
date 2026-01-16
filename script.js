@@ -54,7 +54,30 @@ class ProceduralMusicEngine {
         this.volumes.arp = new Tone.Volume(-8).connect(this.volumes.master);
         this.volumes.drums = new Tone.Volume(-6).connect(this.volumes.master);
 
-        // Create synths (proof of concept)
+        // Create sampler for arp using your Lead Synth Anjuna samples
+        // Note: # characters URL-encoded as %23 (like we did in Dreams project)
+        this.synths.arp = new Tone.Sampler({
+            urls: {
+                'C3': 'audio/samples/Lead Synth Anjuna/ogg/C3.ogg',
+                'C#3': 'audio/samples/Lead Synth Anjuna/ogg/C%233.ogg',
+                'D3': 'audio/samples/Lead Synth Anjuna/ogg/D3.ogg',
+                'D#3': 'audio/samples/Lead Synth Anjuna/ogg/D%233.ogg',
+                'E3': 'audio/samples/Lead Synth Anjuna/ogg/E3.ogg',
+                'F3': 'audio/samples/Lead Synth Anjuna/ogg/F3.ogg',
+                'F#3': 'audio/samples/Lead Synth Anjuna/ogg/F%233.ogg',
+                'G3': 'audio/samples/Lead Synth Anjuna/ogg/G3.ogg',
+                'G#3': 'audio/samples/Lead Synth Anjuna/ogg/G%233.ogg',
+                'A3': 'audio/samples/Lead Synth Anjuna/ogg/A3.ogg',
+                'A#3': 'audio/samples/Lead Synth Anjuna/ogg/A%233.ogg',
+                'B3': 'audio/samples/Lead Synth Anjuna/ogg/B3.ogg',
+                'C4': 'audio/samples/Lead Synth Anjuna/ogg/C4.ogg'
+            },
+            onload: function() {
+                console.log('[ProceduralEngine] Lead Synth Anjuna samples loaded!');
+            }
+        }).connect(this.volumes.arp);
+
+        // Synths for bass, pad, drums (proof of concept - can be replaced with samples later)
         this.synths.bass = new Tone.MonoSynth({
             oscillator: { type: 'sine' },
             envelope: { attack: 0.1, decay: 0.3, sustain: 0.4, release: 1.2 }
@@ -65,14 +88,9 @@ class ProceduralMusicEngine {
             envelope: { attack: 1.5, decay: 1, sustain: 0.7, release: 2 }
         }).connect(this.volumes.pad);
 
-        this.synths.arp = new Tone.Synth({
-            oscillator: { type: 'square' },
-            envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.4 }
-        }).connect(this.volumes.arp);
-
         this.synths.drums = new Tone.MembraneSynth().connect(this.volumes.drums);
 
-        console.log('[ProceduralEngine] Audio initialized');
+        console.log('[ProceduralEngine] Audio initialized (samples + synths)');
 
         // Set initial scale
         this.updateScale(this.currentScale);
