@@ -1,0 +1,340 @@
+/* Root Variables */
+:root {
+    --bg-dark: #0a0e14;
+    --bg-card: #151921;
+    --bg-hover: #1f2430;
+    --accent: #39bae6;
+    --accent-dim: #2d8bb5;
+    --text-primary: #e6e6e6;
+    --text-secondary: #8a8a8a;
+    --border: #2a2f3a;
+    --success: #7cb342;
+    --warning: #ffa726;
+}
+
+/* Reset & Base */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Share Tech Mono', monospace;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+}
+
+.container {
+    max-width: 900px;
+    width: 100%;
+}
+
+/* Header */
+header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px 0;
+    border-bottom: 2px solid var(--border);
+}
+
+h1 {
+    font-size: 3rem;
+    color: var(--accent);
+    margin-bottom: 10px;
+    letter-spacing: 2px;
+}
+
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+/* Master Controls */
+.master-controls {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 30px;
+    margin-bottom: 30px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: center;
+    justify-content: center;
+}
+
+.main-button {
+    background: var(--accent);
+    color: var(--bg-dark);
+    border: none;
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    font-family: 'Share Tech Mono', monospace;
+    font-weight: bold;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.main-button:hover {
+    background: var(--accent-dim);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(57, 186, 230, 0.3);
+}
+
+.main-button.playing {
+    background: var(--warning);
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.control-group label {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+select {
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    padding: 10px 15px;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: border-color 0.3s ease;
+}
+
+select:hover {
+    border-color: var(--accent);
+}
+
+select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+/* Range Inputs */
+input[type="range"] {
+    -webkit-appearance: none;
+    width: 150px;
+    height: 6px;
+    background: var(--bg-dark);
+    border-radius: 3px;
+    outline: none;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    background: var(--accent-dim);
+    transform: scale(1.2);
+}
+
+input[type="range"]::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+    background: var(--accent-dim);
+    transform: scale(1.2);
+}
+
+/* Stems Section */
+.stems {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stem-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.stem-card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(57, 186, 230, 0.2);
+}
+
+.stem-card h3 {
+    color: var(--accent);
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+.stem-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
+}
+
+.stem-volume {
+    width: 100%;
+}
+
+.volume-value {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.toggle-stem {
+    width: 100%;
+    background: var(--bg-dark);
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.toggle-stem:hover {
+    border-color: var(--accent);
+}
+
+.toggle-stem.active {
+    background: var(--success);
+    color: var(--bg-dark);
+    border-color: var(--success);
+}
+
+.stem-indicator {
+    margin-top: 10px;
+    height: 4px;
+    background: var(--bg-dark);
+    border-radius: 2px;
+    position: relative;
+    overflow: hidden;
+}
+
+.stem-indicator::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width 0.3s ease;
+}
+
+.stem-indicator.playing::after {
+    width: 100%;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+/* Info Section */
+.info {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 30px;
+}
+
+.status {
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 15px;
+    font-style: italic;
+}
+
+details {
+    color: var(--text-secondary);
+}
+
+summary {
+    cursor: pointer;
+    padding: 10px;
+    border-radius: 4px;
+    transition: background 0.3s ease;
+    user-select: none;
+}
+
+summary:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+details p {
+    padding: 10px 20px;
+    line-height: 1.8;
+}
+
+/* Footer */
+footer {
+    text-align: center;
+    padding: 20px 0;
+    color: var(--text-secondary);
+    border-top: 1px solid var(--border);
+}
+
+footer a {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+footer a:hover {
+    color: var(--accent-dim);
+    text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    h1 {
+        font-size: 2rem;
+    }
+
+    .master-controls {
+        flex-direction: column;
+    }
+
+    .stems {
+        grid-template-columns: 1fr;
+    }
+
+    input[type="range"] {
+        width: 100%;
+    }
+}
