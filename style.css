@@ -323,10 +323,9 @@ footer a:hover {
 /* ADSR Controls */
 .adsr-controls {
     display: flex;
-    justify-content: center;
-    align-items: flex-end;
-    gap: 15px;
-    padding: 20px 10px;
+    flex-direction: column;
+    gap: 10px;
+    padding: 15px;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 8px;
     margin-top: 10px;
@@ -334,9 +333,8 @@ footer a:hover {
 
 .adsr-slider {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 
 .adsr-slider label {
@@ -344,22 +342,19 @@ footer a:hover {
     color: var(--text-secondary);
     font-weight: bold;
     letter-spacing: 1px;
+    min-width: 20px;
 }
 
 .adsr-slider input[type="range"] {
-    writing-mode: vertical-lr;
-    direction: rtl;
-    width: 80px;
-    height: 8px;
+    flex: 1;
     margin: 0;
-    -webkit-appearance: slider-vertical;
 }
 
 .adsr-slider .adsr-value {
     font-size: 0.75rem;
     color: var(--accent);
-    min-width: 50px;
-    text-align: center;
+    min-width: 60px;
+    text-align: right;
 }
 
 /* Responsive */
