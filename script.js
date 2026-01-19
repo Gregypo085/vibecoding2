@@ -7,6 +7,7 @@ class ProceduralMusicEngine {
         this.currentScale = 'A minor';
         this.scaleNotes = [];
         this.currentDrumPattern = 0;
+        this.drumPitchOffset = 0;
 
         // Tone.js synths (proof of concept - will be replaced with samples)
         this.synths = {
@@ -180,8 +181,10 @@ class ProceduralMusicEngine {
         console.log('[ProceduralEngine] Drum pattern (' + this.drumPatterns[this.currentDrumPattern].name + '):', drumPattern);
         this.patterns.drums = new Tone.Sequence((time, note) => {
             if (self.enabled.drums && note) {
-                console.log('[Drums] Playing:', note, 'at', time);
-                self.synths.drums.triggerAttackRelease(note, '8n', time);
+                // Apply pitch offset using Tonal.Note.transpose
+                const transposedNote = Tonal.Note.transpose(note, self.drumPitchOffset);
+                console.log('[Drums] Playing:', transposedNote, 'at', time);
+                self.synths.drums.triggerAttackRelease(transposedNote, '8n', time);
             }
         }, drumPattern, '8n');
 
@@ -359,8 +362,10 @@ class ProceduralMusicEngine {
             // Create new pattern
             this.patterns.drums = new Tone.Sequence((time, note) => {
                 if (self.enabled.drums && note) {
-                    console.log('[Drums] Playing:', note, 'at', time);
-                    self.synths.drums.triggerAttackRelease(note, '8n', time);
+                    // Apply pitch offset using Tonal.Note.transpose
+                    const transposedNote = Tonal.Note.transpose(note, self.drumPitchOffset);
+                    console.log('[Drums] Playing:', transposedNote, 'at', time);
+                    self.synths.drums.triggerAttackRelease(transposedNote, '8n', time);
                 }
             }, drumPattern, '8n');
 
@@ -368,6 +373,12 @@ class ProceduralMusicEngine {
         }
 
         return patternName;
+    }
+
+    // Set drum pitch offset (in semitones)
+    setDrumPitch(semitones) {
+        this.drumPitchOffset = semitones;
+        console.log('[ProceduralEngine] Drum pitch offset set to:', semitones, 'semitones');
     }
 }
 
@@ -460,6 +471,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     drumPatternBtn.addEventListener('click', () => {
         const patternName = engine.nextDrumPattern();
         drumPatternBtn.textContent = patternName;
+    });
+
+    // Drum Pitch Control
+    const drumPitch = document.getElementById('drumPitch');
+    const drumPitchValue = document.getElementById('drumPitchValue');
+    drumPitch.addEventListener('input', (e) => {
+        const semitones = parseInt(e.target.value);
+        engine.setDrumPitch(semitones);
+        drumPitchValue.textContent = semitones > 0 ? '+' + semitones : semitones;
     });
 
     console.log('[VibeCoding2] Initialization complete');
