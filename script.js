@@ -181,8 +181,8 @@ class ProceduralMusicEngine {
         console.log('[ProceduralEngine] Drum pattern (' + this.drumPatterns[this.currentDrumPattern].name + '):', drumPattern);
         this.patterns.drums = new Tone.Sequence((time, note) => {
             if (self.enabled.drums && note) {
-                // Apply pitch offset using Tonal.Note.transpose
-                const transposedNote = Tonal.Note.transpose(note, self.drumPitchOffset);
+                // Apply pitch offset using Tone.Frequency.transpose (takes semitones)
+                const transposedNote = Tone.Frequency(note).transpose(self.drumPitchOffset).toNote();
                 console.log('[Drums] Playing:', transposedNote, 'at', time);
                 self.synths.drums.triggerAttackRelease(transposedNote, '8n', time);
             }
@@ -362,8 +362,8 @@ class ProceduralMusicEngine {
             // Create new pattern
             this.patterns.drums = new Tone.Sequence((time, note) => {
                 if (self.enabled.drums && note) {
-                    // Apply pitch offset using Tonal.Note.transpose
-                    const transposedNote = Tonal.Note.transpose(note, self.drumPitchOffset);
+                    // Apply pitch offset using Tone.Frequency.transpose (takes semitones)
+                    const transposedNote = Tone.Frequency(note).transpose(self.drumPitchOffset).toNote();
                     console.log('[Drums] Playing:', transposedNote, 'at', time);
                     self.synths.drums.triggerAttackRelease(transposedNote, '8n', time);
                 }
