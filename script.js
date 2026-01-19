@@ -167,7 +167,7 @@ class ProceduralMusicEngine {
         // Synths for bass, pad, drums (proof of concept - can be replaced with samples later)
         this.synths.bass = new Tone.MonoSynth({
             oscillator: { type: 'sine' },
-            envelope: { attack: 0.1, decay: 0.3, sustain: 0.4, release: 1.2 }
+            envelope: { attack: 0.001, decay: 0.34, sustain: 0.01, release: 0 }
         }).connect(this.volumes.bass);
 
         this.synths.pad = new Tone.PolySynth(Tone.Synth, {
