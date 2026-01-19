@@ -6,10 +6,10 @@ class ProceduralMusicEngine {
         this.isPlaying = false;
         this.currentScale = 'A minor';
         this.scaleNotes = [];
-        this.currentDrumPattern = 0;
+        this.currentDrumPattern = 0; // Defaults to 4-on-Floor
         this.drumPitchOffset = 0;
         this.currentStyle = 'synthwave';
-        this.bassRhythmOverride = '8th'; // User's manual rhythm selection
+        this.bassRhythmOverride = '16th'; // User's manual rhythm selection
 
         // Tone.js synths (proof of concept - will be replaced with samples)
         this.synths = {
@@ -167,7 +167,7 @@ class ProceduralMusicEngine {
 
         // Synths for bass, pad, drums (proof of concept - can be replaced with samples later)
         this.synths.bass = new Tone.MonoSynth({
-            oscillator: { type: 'sine' },
+            oscillator: { type: 'sawtooth' },
             envelope: { attack: 0.001, decay: 0.34, sustain: 0.01, release: 0 }
         }).connect(this.volumes.bass);
 
