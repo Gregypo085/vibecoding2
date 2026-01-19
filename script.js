@@ -320,6 +320,12 @@ class ProceduralMusicEngine {
         this.enabled[stem] = enabled;
         console.log('[ProceduralEngine] ' + stem + ' ' + (enabled ? 'enabled' : 'disabled'));
     }
+
+    // Set BPM/Tempo
+    setBPM(bpm) {
+        Tone.Transport.bpm.value = bpm;
+        console.log('[ProceduralEngine] BPM set to:', bpm);
+    }
 }
 
 // Global engine instance
@@ -355,6 +361,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     keySelect.addEventListener('change', (e) => {
         engine.updateScale(e.target.value);
         updateStatus('Changed to ' + e.target.value);
+    });
+
+    // BPM/Tempo Control
+    const bpmSlider = document.getElementById('bpmSlider');
+    const bpmValue = document.getElementById('bpmValue');
+    bpmSlider.addEventListener('input', (e) => {
+        const bpm = parseInt(e.target.value);
+        engine.setBPM(bpm);
+        bpmValue.textContent = bpm;
     });
 
     // Master Volume
