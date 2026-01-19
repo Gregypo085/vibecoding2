@@ -6,6 +6,7 @@ class ProceduralMusicEngine {
         this.isPlaying = false;
         this.currentScale = 'A minor';
         this.scaleNotes = [];
+        this.currentDrumPattern = 0;
 
         // Tone.js synths (proof of concept - will be replaced with samples)
         this.synths = {
@@ -39,6 +40,16 @@ class ProceduralMusicEngine {
             arp: true,
             drums: true
         };
+
+        // Drum patterns (8th note grid: beats 1, 1&, 2, 2&, 3, 3&, 4, 4&)
+        this.drumPatterns = [
+            { name: '4-on-Floor', pattern: ['C1', null, 'C1', null, 'C1', null, 'C1', null] },
+            { name: '1, 2&', pattern: ['C1', null, null, 'C1', null, null, null, null] },
+            { name: '1, 2&, 4', pattern: ['C1', null, null, 'C1', null, null, 'C1', null] },
+            { name: '1, 3', pattern: ['C1', null, null, null, 'C1', null, null, null] },
+            { name: '1&, 3&', pattern: [null, 'C1', null, null, null, 'C1', null, null] },
+            { name: '1, 2, 3&, 4', pattern: ['C1', null, 'C1', null, null, 'C1', 'C1', null] }
+        ];
     }
 
     // Initialize Tone.js audio context and instruments
@@ -164,9 +175,9 @@ class ProceduralMusicEngine {
             }
         }, arpNotes, '16n');
 
-        // Generate drum pattern (kick on beats)
-        const drumPattern = [null, 'C1', null, null, null, 'C1', null, null];
-        console.log('[ProceduralEngine] Drum pattern:', drumPattern);
+        // Generate drum pattern (use current pattern)
+        const drumPattern = this.drumPatterns[this.currentDrumPattern].pattern;
+        console.log('[ProceduralEngine] Drum pattern (' + this.drumPatterns[this.currentDrumPattern].name + '):', drumPattern);
         this.patterns.drums = new Tone.Sequence((time, note) => {
             if (self.enabled.drums && note) {
                 console.log('[Drums] Playing:', note, 'at', time);
@@ -327,6 +338,37 @@ class ProceduralMusicEngine {
         Tone.Transport.bpm.value = bpm;
         console.log('[ProceduralEngine] BPM set to:', bpm);
     }
+
+    // Cycle to next drum pattern
+    nextDrumPattern() {
+        this.currentDrumPattern = (this.currentDrumPattern + 1) % this.drumPatterns.length;
+        const patternName = this.drumPatterns[this.currentDrumPattern].name;
+        console.log('[ProceduralEngine] Drum pattern changed to:', patternName);
+
+        // Regenerate drum pattern if playing
+        if (this.isPlaying) {
+            const self = this;
+            const drumPattern = this.drumPatterns[this.currentDrumPattern].pattern;
+
+            // Stop old pattern
+            if (this.patterns.drums) {
+                this.patterns.drums.stop();
+                this.patterns.drums.dispose();
+            }
+
+            // Create new pattern
+            this.patterns.drums = new Tone.Sequence((time, note) => {
+                if (self.enabled.drums && note) {
+                    console.log('[Drums] Playing:', note, 'at', time);
+                    self.synths.drums.triggerAttackRelease(note, '8n', time);
+                }
+            }, drumPattern, '8n');
+
+            this.patterns.drums.start(0);
+        }
+
+        return patternName;
+    }
 }
 
 // Global engine instance
@@ -411,6 +453,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.textContent = isActive ? 'Active' : 'Muted';
             engine.toggleStem(stem, isActive);
         });
+    });
+
+    // Drum Pattern Button
+    const drumPatternBtn = document.getElementById('drumPatternBtn');
+    drumPatternBtn.addEventListener('click', () => {
+        const patternName = engine.nextDrumPattern();
+        drumPatternBtn.textContent = patternName;
     });
 
     console.log('[VibeCoding2] Initialization complete');
