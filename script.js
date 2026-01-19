@@ -8,6 +8,7 @@ class ProceduralMusicEngine {
         this.scaleNotes = [];
         this.currentDrumPattern = 0;
         this.drumPitchOffset = 0;
+        this.currentStyle = 'synthwave';
 
         // Tone.js synths (proof of concept - will be replaced with samples)
         this.synths = {
@@ -51,6 +52,70 @@ class ProceduralMusicEngine {
             { name: '1&, 3&', pattern: [null, 'C1', null, null, null, 'C1', null, null] },
             { name: '1, 2, 3&, 4', pattern: ['C1', null, 'C1', null, null, 'C1', 'C1', null] }
         ];
+
+        // Style presets for procedural generation
+        this.styles = {
+            synthwave: {
+                name: 'Synthwave',
+                bpmRange: [80, 110],
+                chordProgressions: [
+                    [0, 5, 2, 6],  // i-VI-III-VII
+                    [0, 3, 6, 5],  // i-iv-VII-VI
+                    [0, 5, 3, 6]   // i-VI-iv-VII
+                ],
+                bassPatterns: ['pulsing', 'root-fifth'],
+                arpPatterns: ['arpeggiated', 'melodic'],
+                drumPatterns: [0, 2]  // 4-on-floor, 1-2&-4
+            },
+            techno: {
+                name: 'Techno',
+                bpmRange: [125, 135],
+                chordProgressions: [
+                    [0, 0, 3, 0],  // i-i-iv-i
+                    [0, 6, 0, 6],  // i-VII-i-VII
+                    [0, 3, 0, 3]   // i-iv-i-iv
+                ],
+                bassPatterns: ['minimal', 'driving'],
+                arpPatterns: ['stabs', 'minimal'],
+                drumPatterns: [0, 5]  // 4-on-floor, complex
+            },
+            trance: {
+                name: 'Trance',
+                bpmRange: [130, 140],
+                chordProgressions: [
+                    [0, 5, 3, 4],  // i-VI-iv-V
+                    [0, 3, 5, 6],  // i-iv-VI-VII
+                    [0, 5, 6, 4]   // i-VI-VII-V
+                ],
+                bassPatterns: ['rolling', 'pulsing'],
+                arpPatterns: ['fast-arpeggiated', 'uplifting'],
+                drumPatterns: [0, 2]  // 4-on-floor variations
+            },
+            house: {
+                name: 'House',
+                bpmRange: [120, 128],
+                chordProgressions: [
+                    [0, 3, 5, 4],  // i-iv-VI-V
+                    [0, 5, 3, 6],  // i-VI-iv-VII
+                    [0, 4, 5, 3]   // i-V-VI-iv
+                ],
+                bassPatterns: ['groovy', 'funky'],
+                arpPatterns: ['melodic', 'rhythmic'],
+                drumPatterns: [0, 2, 5]  // 4-on-floor variations
+            },
+            ambient: {
+                name: 'Ambient',
+                bpmRange: [60, 80],
+                chordProgressions: [
+                    [0, 3, 5, 2],  // i-iv-VI-III
+                    [0, 5, 3, 0],  // i-VI-iv-i
+                    [0, 2, 5, 0]   // i-III-VI-i
+                ],
+                bassPatterns: ['sustained', 'minimal'],
+                arpPatterns: ['sparse', 'atmospheric'],
+                drumPatterns: [3, 4]  // minimal, no 4-on-floor
+            }
+        };
     }
 
     // Initialize Tone.js audio context and instruments
@@ -195,57 +260,104 @@ class ProceduralMusicEngine {
     // Generate bass pattern (root notes, lower octave)
     generateBassPattern() {
         const bassOctave = '2';
+        const style = this.styles[this.currentStyle];
+        const bassPattern = this.randomChoice(style.bassPatterns);
 
-        // Simple pattern: play root and fifth
-        const root = this.scaleNotes[0] + bassOctave;
-        const fifth = this.scaleNotes[4] ? this.scaleNotes[4] + bassOctave : root;
+        // Get chord progression from current style
+        const chordProg = this.randomChoice(style.chordProgressions);
+        const root = this.scaleNotes[chordProg[0]] + bassOctave;
 
-        return [root, null, fifth, null, root, null, fifth, null];
+        // Different patterns based on style
+        if (bassPattern === 'minimal' || bassPattern === 'sustained') {
+            // Minimal: mostly root, sparse
+            return [root, null, null, null, root, null, null, null];
+        } else if (bassPattern === 'pulsing' || bassPattern === 'driving') {
+            // Pulsing: steady 8th notes on root
+            return [root, null, root, null, root, null, root, null];
+        } else if (bassPattern === 'rolling') {
+            // Rolling: root with some fifths
+            const fifth = this.scaleNotes[chordProg[0] + 4] ? this.scaleNotes[(chordProg[0] + 4) % 7] + bassOctave : root;
+            return [root, fifth, root, null, root, fifth, root, null];
+        } else {
+            // Default: root-fifth pattern (groovy, funky, root-fifth)
+            const fifth = this.scaleNotes[chordProg[0] + 4] ? this.scaleNotes[(chordProg[0] + 4) % 7] + bassOctave : root;
+            return [root, null, fifth, null, root, null, fifth, null];
+        }
     }
 
     // Generate pad pattern (chords)
     generatePadPattern() {
         const chordOctave = '3';
+        const style = this.styles[this.currentStyle];
 
-        // Build triads from scale degrees
-        // I chord (1-3-5)
-        const chord1 = [
-            this.scaleNotes[0] + chordOctave,
-            this.scaleNotes[2] + chordOctave,
-            this.scaleNotes[4] + chordOctave
-        ];
+        // Get random chord progression from style
+        const chordProg = this.randomChoice(style.chordProgressions);
 
-        // IV chord (4-6-1)
-        const chord2 = [
-            this.scaleNotes[3] + chordOctave,
-            this.scaleNotes[5] + chordOctave,
-            this.scaleNotes[0] + String(parseInt(chordOctave) + 1)
-        ];
+        // Build triads from the progression
+        const chords = chordProg.map(degree => {
+            // Build triad: root, third, fifth
+            const root = this.scaleNotes[degree % 7];
+            const third = this.scaleNotes[(degree + 2) % 7];
+            const fifth = this.scaleNotes[(degree + 4) % 7];
 
-        // V chord (5-7-2)
-        const chord3 = [
-            this.scaleNotes[4] + chordOctave,
-            this.scaleNotes[6] + chordOctave,
-            this.scaleNotes[1] + String(parseInt(chordOctave) + 1)
-        ];
+            return [
+                root + chordOctave,
+                third + chordOctave,
+                fifth + chordOctave
+            ];
+        });
 
-        return [chord1, chord2, chord3, chord1];
+        return chords;
     }
 
     // Generate arp pattern (melodic notes)
     generateArpPattern() {
-        const arpOctave = '3';  // Changed to 3 to match your sample range (C3-C4)
+        const arpOctave = '3';  // Match your sample range (C3-C4)
+        const style = this.styles[this.currentStyle];
+        const arpPattern = this.randomChoice(style.arpPatterns);
 
-        // Create a procedural melody using scale degrees
         const scaleWithOctave = this.scaleNotes.map(note => note + arpOctave);
 
-        // Simple pattern: ascend and descend through scale
-        return [
-            scaleWithOctave[0], scaleWithOctave[2], scaleWithOctave[4],
-            scaleWithOctave[2], scaleWithOctave[0], scaleWithOctave[4],
-            scaleWithOctave[2], scaleWithOctave[0], null, null, null, null,
-            null, null, null, null
-        ];
+        // Different patterns based on style
+        if (arpPattern === 'arpeggiated' || arpPattern === 'fast-arpeggiated') {
+            // Classic arpeggio: 1-3-5-3 repeated
+            return [
+                scaleWithOctave[0], scaleWithOctave[2], scaleWithOctave[4], scaleWithOctave[2],
+                scaleWithOctave[0], scaleWithOctave[2], scaleWithOctave[4], scaleWithOctave[2],
+                scaleWithOctave[0], scaleWithOctave[2], scaleWithOctave[4], scaleWithOctave[2],
+                scaleWithOctave[0], scaleWithOctave[2], scaleWithOctave[4], scaleWithOctave[2]
+            ];
+        } else if (arpPattern === 'melodic' || arpPattern === 'uplifting') {
+            // Melodic: ascend and descend
+            return [
+                scaleWithOctave[0], scaleWithOctave[2], scaleWithOctave[4], scaleWithOctave[5],
+                scaleWithOctave[4], scaleWithOctave[2], scaleWithOctave[0], null,
+                scaleWithOctave[0], scaleWithOctave[2], scaleWithOctave[4], scaleWithOctave[6],
+                scaleWithOctave[4], scaleWithOctave[2], scaleWithOctave[0], null
+            ];
+        } else if (arpPattern === 'stabs' || arpPattern === 'minimal') {
+            // Stabs: sparse, rhythmic hits
+            return [
+                scaleWithOctave[0], null, null, null,
+                scaleWithOctave[4], null, null, null,
+                scaleWithOctave[2], null, null, null,
+                scaleWithOctave[0], null, null, null
+            ];
+        } else if (arpPattern === 'sparse' || arpPattern === 'atmospheric') {
+            // Sparse: very minimal, atmospheric
+            return [
+                scaleWithOctave[0], null, null, null, null, null, null, null,
+                scaleWithOctave[4], null, null, null, null, null, null, null
+            ];
+        } else {
+            // Default: rhythmic pattern
+            return [
+                scaleWithOctave[0], scaleWithOctave[2], scaleWithOctave[4], null,
+                scaleWithOctave[2], null, scaleWithOctave[0], null,
+                scaleWithOctave[4], scaleWithOctave[2], scaleWithOctave[0], null,
+                null, null, null, null
+            ];
+        }
     }
 
     // Start all pattern sequences
@@ -380,6 +492,44 @@ class ProceduralMusicEngine {
         this.drumPitchOffset = semitones;
         console.log('[ProceduralEngine] Drum pitch offset set to:', semitones, 'semitones');
     }
+
+    // Change style and regenerate
+    setStyle(styleName) {
+        if (!this.styles[styleName]) {
+            console.error('[ProceduralEngine] Unknown style:', styleName);
+            return;
+        }
+
+        this.currentStyle = styleName;
+        const style = this.styles[styleName];
+
+        // Set BPM from style's range
+        const bpm = this.randomInRange(style.bpmRange[0], style.bpmRange[1]);
+        this.setBPM(bpm);
+
+        // Pick a random compatible drum pattern from style
+        const drumPatternIndex = this.randomChoice(style.drumPatterns);
+        this.currentDrumPattern = drumPatternIndex;
+
+        console.log('[ProceduralEngine] Style changed to:', style.name, '| BPM:', bpm);
+
+        // Regenerate patterns if playing
+        if (this.isPlaying) {
+            this.regeneratePatterns();
+        }
+
+        return { style: style.name, bpm: bpm, drumPattern: this.drumPatterns[drumPatternIndex].name };
+    }
+
+    // Helper: pick random element from array
+    randomChoice(array) {
+        return array[Math.floor(Math.random() * array.length)];
+    }
+
+    // Helper: random number in range (inclusive)
+    randomInRange(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
 }
 
 // Global engine instance
@@ -396,10 +546,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize engine
     await engine.init();
+
+    // Get UI elements
+    const playPauseBtn = document.getElementById('playPause');
+    const keySelect = document.getElementById('keySelect');
+    const styleSelect = document.getElementById('styleSelect');
+    const regenerateBtn = document.getElementById('regenerateBtn');
+    const bpmSlider = document.getElementById('bpmSlider');
+    const bpmValue = document.getElementById('bpmValue');
+    const drumPatternBtn = document.getElementById('drumPatternBtn');
+
+    // Initialize default style
+    const initialStyle = engine.setStyle('synthwave');
+    if (initialStyle) {
+        bpmSlider.value = initialStyle.bpm;
+        bpmValue.textContent = initialStyle.bpm;
+        drumPatternBtn.textContent = initialStyle.drumPattern;
+    }
+
     updateStatus('Ready - Click Start to generate music');
 
     // Play/Pause Button
-    const playPauseBtn = document.getElementById('playPause');
     playPauseBtn.addEventListener('click', async () => {
         if (!engine.isPlaying) {
             await engine.start();
@@ -411,15 +578,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Key/Scale Selection
-    const keySelect = document.getElementById('keySelect');
     keySelect.addEventListener('change', (e) => {
         engine.updateScale(e.target.value);
         updateStatus('Changed to ' + e.target.value);
     });
 
+    // Style Selection
+    styleSelect.addEventListener('change', (e) => {
+        const result = engine.setStyle(e.target.value);
+        if (result) {
+            bpmSlider.value = result.bpm;
+            bpmValue.textContent = result.bpm;
+            drumPatternBtn.textContent = result.drumPattern;
+            updateStatus('Style: ' + result.style + ' | BPM: ' + result.bpm);
+        }
+    });
+
+    // Regenerate Button
+    regenerateBtn.addEventListener('click', () => {
+        if (engine.isPlaying) {
+            engine.regeneratePatterns();
+            updateStatus('Regenerated new patterns');
+        } else {
+            updateStatus('Start playback first');
+        }
+    });
+
     // BPM/Tempo Control
-    const bpmSlider = document.getElementById('bpmSlider');
-    const bpmValue = document.getElementById('bpmValue');
     bpmSlider.addEventListener('input', (e) => {
         const bpm = parseInt(e.target.value);
         engine.setBPM(bpm);
@@ -467,7 +652,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // Drum Pattern Button
-    const drumPatternBtn = document.getElementById('drumPatternBtn');
     drumPatternBtn.addEventListener('click', () => {
         const patternName = engine.nextDrumPattern();
         drumPatternBtn.textContent = patternName;

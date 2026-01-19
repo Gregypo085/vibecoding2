@@ -38,6 +38,18 @@
                 </div>
 
                 <div class="control-group">
+                    <label for="styleSelect">Style:</label>
+                    <select id="styleSelect">
+                        <option value="synthwave" selected>Synthwave</option>
+                        <option value="techno">Techno</option>
+                        <option value="trance">Trance</option>
+                        <option value="house">House</option>
+                        <option value="ambient">Ambient</option>
+                    </select>
+                    <button id="regenerateBtn" class="pattern-btn">Regenerate</button>
+                </div>
+
+                <div class="control-group">
                     <label for="bpmSlider">Tempo (BPM)</label>
                     <input type="range" id="bpmSlider" min="70" max="130" step="1" value="90">
                     <span id="bpmValue">90</span>
