@@ -499,6 +499,14 @@ class ProceduralMusicEngine {
         console.log('[ProceduralEngine] BPM set to:', bpm);
     }
 
+    // Set bass waveform
+    setBassWaveform(waveform) {
+        if (this.synths.bass && this.synths.bass.oscillator) {
+            this.synths.bass.oscillator.type = waveform;
+            console.log('[ProceduralEngine] Bass waveform set to:', waveform);
+        }
+    }
+
     // Cycle to next drum pattern
     nextDrumPattern() {
         this.currentDrumPattern = (this.currentDrumPattern + 1) % this.drumPatterns.length;
@@ -694,6 +702,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             btn.textContent = isActive ? 'Active' : 'Muted';
             engine.toggleStem(stem, isActive);
         });
+    });
+
+    // Bass Waveform Selector
+    const bassWaveform = document.getElementById('bassWaveform');
+    bassWaveform.addEventListener('change', (e) => {
+        engine.setBassWaveform(e.target.value);
     });
 
     // Drum Pattern Button
