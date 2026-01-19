@@ -320,6 +320,48 @@ footer a:hover {
     text-decoration: underline;
 }
 
+/* ADSR Controls */
+.adsr-controls {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 15px;
+    padding: 20px 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    margin-top: 10px;
+}
+
+.adsr-slider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.adsr-slider label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.adsr-slider input[type="range"] {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 80px;
+    height: 8px;
+    margin: 0;
+    -webkit-appearance: slider-vertical;
+}
+
+.adsr-slider .adsr-value {
+    font-size: 0.75rem;
+    color: var(--accent);
+    min-width: 50px;
+    text-align: center;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     h1 {

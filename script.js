@@ -507,6 +507,22 @@ class ProceduralMusicEngine {
         }
     }
 
+    // Set bass envelope parameters
+    setBassEnvelope(param, value) {
+        if (this.synths.bass && this.synths.bass.envelope) {
+            if (param === 'attack') {
+                this.synths.bass.envelope.attack = value / 1000; // Convert ms to seconds
+            } else if (param === 'decay') {
+                this.synths.bass.envelope.decay = value / 1000;
+            } else if (param === 'sustain') {
+                this.synths.bass.envelope.sustain = value / 100; // Convert percentage to 0-1
+            } else if (param === 'release') {
+                this.synths.bass.envelope.release = value / 1000;
+            }
+            console.log('[ProceduralEngine] Bass', param, 'set to:', value);
+        }
+    }
+
     // Cycle to next drum pattern
     nextDrumPattern() {
         this.currentDrumPattern = (this.currentDrumPattern + 1) % this.drumPatterns.length;
@@ -708,6 +724,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bassWaveform = document.getElementById('bassWaveform');
     bassWaveform.addEventListener('change', (e) => {
         engine.setBassWaveform(e.target.value);
+    });
+
+    // Bass ADSR Controls
+    const bassAttack = document.getElementById('bassAttack');
+    const bassAttackValue = document.querySelector('#bassAttack + .adsr-value');
+    bassAttack.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        engine.setBassEnvelope('attack', value);
+        bassAttackValue.textContent = value + 'ms';
+    });
+
+    const bassDecay = document.getElementById('bassDecay');
+    const bassDecayValue = document.querySelector('#bassDecay + .adsr-value');
+    bassDecay.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        engine.setBassEnvelope('decay', value);
+        bassDecayValue.textContent = value + 'ms';
+    });
+
+    const bassSustain = document.getElementById('bassSustain');
+    const bassSustainValue = document.querySelector('#bassSustain + .adsr-value');
+    bassSustain.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        engine.setBassEnvelope('sustain', value);
+        bassSustainValue.textContent = value + '%';
+    });
+
+    const bassRelease = document.getElementById('bassRelease');
+    const bassReleaseValue = document.querySelector('#bassRelease + .adsr-value');
+    bassRelease.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        engine.setBassEnvelope('release', value);
+        bassReleaseValue.textContent = value + 'ms';
     });
 
     // Drum Pattern Button
