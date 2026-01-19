@@ -9,6 +9,7 @@ class ProceduralMusicEngine {
         this.currentDrumPattern = 0;
         this.drumPitchOffset = 0;
         this.currentStyle = 'synthwave';
+        this.bassRhythmOverride = '8th'; // User's manual rhythm selection
 
         // Tone.js synths (proof of concept - will be replaced with samples)
         this.synths = {
@@ -261,30 +262,41 @@ class ProceduralMusicEngine {
     generateBassPattern() {
         const bassOctave = '2';
         const style = this.styles[this.currentStyle];
-        const bassPattern = this.randomChoice(style.bassPatterns);
 
         // Get chord progression from current style
         const chordProg = this.randomChoice(style.chordProgressions);
         const root = this.scaleNotes[chordProg[0]] + bassOctave;
         const fifth = this.scaleNotes[(chordProg[0] + 4) % 7] + bassOctave;
 
-        // Different patterns based on style
-        // Note: Current subdivision is '2n' (half notes), 8 positions = 4 bars
+        // Use rhythm override to determine pattern
+        return this.generateBassRhythmPattern(root, fifth);
 
-        if (bassPattern === 'minimal' || bassPattern === 'sustained') {
-            // Minimal: root on 1 of each bar
+    }
+
+    // Generate bass rhythm pattern based on user's rhythm selection
+    generateBassRhythmPattern(root, fifth) {
+        const rhythm = this.bassRhythmOverride;
+
+        if (rhythm === 'whole') {
+            // Whole notes: very sparse (4 positions = 4 bars)
+            return {
+                pattern: [root, null, null, null],
+                subdivision: '1n'
+            };
+        } else if (rhythm === 'half') {
+            // Half notes: sparse (8 positions = 4 bars)
             return {
                 pattern: [root, null, root, null, root, null, root, null],
                 subdivision: '2n'
             };
-        } else if (bassPattern === 'pulsing') {
-            // Pulsing: steady quarter notes
+        } else if (rhythm === 'quarter') {
+            // Quarter notes: steady (8 positions = 2 bars)
             return {
                 pattern: [root, root, root, root, root, root, root, root],
-                subdivision: '2n'
+                subdivision: '4n'
             };
-        } else if (bassPattern === 'rolling') {
-            // Rolling (synthwave): 8th notes, root-fifth pattern (16 positions = 2 bars)
+        } else if (rhythm === '8th') {
+            // 8th notes: root-fifth pattern (16 positions = 2 bars)
             return {
                 pattern: [
                     root, fifth, root, fifth, root, fifth, root, fifth,
@@ -292,26 +304,8 @@ class ProceduralMusicEngine {
                 ],
                 subdivision: '8n'
             };
-        } else if (bassPattern === 'driving') {
-            // Driving (techno): steady 8th notes on root (16 positions = 2 bars)
-            return {
-                pattern: [
-                    root, root, root, root, root, root, root, root,
-                    root, root, root, root, root, root, root, root
-                ],
-                subdivision: '8n'
-            };
-        } else if (bassPattern === 'groovy' || bassPattern === 'funky') {
-            // Groovy: syncopated 8th note pattern (16 positions = 2 bars)
-            return {
-                pattern: [
-                    root, null, fifth, root, null, root, fifth, null,
-                    root, null, fifth, root, null, root, fifth, null
-                ],
-                subdivision: '8n'
-            };
-        } else if (bassPattern === 'trance-16ths') {
-            // Trance: fast 16th notes (32 positions = 2 bars)
+        } else if (rhythm === '16th') {
+            // 16th notes: fast (32 positions = 2 bars)
             return {
                 pattern: [
                     root, root, root, root, fifth, fifth, root, root,
@@ -321,11 +315,25 @@ class ProceduralMusicEngine {
                 ],
                 subdivision: '16n'
             };
-        } else {
-            // Default: root-fifth pattern
+        } else if (rhythm === '32nd') {
+            // 32nd notes: very fast (64 positions = 2 bars)
+            const pattern = [];
+            for (let i = 0; i < 64; i++) {
+                // Alternate root and fifth with occasional variations
+                pattern.push(i % 8 < 6 ? root : fifth);
+            }
             return {
-                pattern: [root, null, fifth, null, root, null, fifth, null],
-                subdivision: '2n'
+                pattern: pattern,
+                subdivision: '32n'
+            };
+        } else {
+            // Default: 8th notes
+            return {
+                pattern: [
+                    root, fifth, root, fifth, root, fifth, root, fifth,
+                    root, fifth, root, fifth, root, fifth, root, fifth
+                ],
+                subdivision: '8n'
             };
         }
     }
@@ -520,6 +528,34 @@ class ProceduralMusicEngine {
                 this.synths.bass.envelope.release = value / 1000;
             }
             console.log('[ProceduralEngine] Bass', param, 'set to:', value);
+        }
+    }
+
+    // Set bass rhythm and regenerate pattern
+    setBassRhythm(rhythm) {
+        this.bassRhythmOverride = rhythm;
+        console.log('[ProceduralEngine] Bass rhythm set to:', rhythm);
+
+        // Regenerate bass pattern if playing
+        if (this.isPlaying) {
+            const self = this;
+            const bassData = this.generateBassPattern();
+
+            // Stop old pattern
+            if (this.patterns.bass) {
+                this.patterns.bass.stop();
+                this.patterns.bass.dispose();
+            }
+
+            // Create new pattern
+            this.patterns.bass = new Tone.Sequence((time, note) => {
+                if (self.enabled.bass && note) {
+                    console.log('[Bass] Playing:', note, 'at', time);
+                    self.synths.bass.triggerAttackRelease(note, '4n', time);
+                }
+            }, bassData.pattern, bassData.subdivision);
+
+            this.patterns.bass.start(0);
         }
     }
 
@@ -724,6 +760,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const bassWaveform = document.getElementById('bassWaveform');
     bassWaveform.addEventListener('change', (e) => {
         engine.setBassWaveform(e.target.value);
+    });
+
+    // Bass Rhythm Selector
+    const bassRhythm = document.getElementById('bassRhythm');
+    bassRhythm.addEventListener('change', (e) => {
+        engine.setBassRhythm(e.target.value);
     });
 
     // Bass ADSR Controls
