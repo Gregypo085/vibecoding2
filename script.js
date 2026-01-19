@@ -87,7 +87,7 @@ class ProceduralMusicEngine {
                     [0, 3, 5, 6],  // i-iv-VI-VII
                     [0, 5, 6, 4]   // i-VI-VII-V
                 ],
-                bassPatterns: ['rolling', 'pulsing'],
+                bassPatterns: ['trance-16ths', 'rolling'],
                 arpPatterns: ['fast-arpeggiated', 'uplifting'],
                 drumPatterns: [0, 2]  // 4-on-floor variations
             },
@@ -210,15 +210,15 @@ class ProceduralMusicEngine {
         this.stopPatterns();
 
         // Generate bass pattern (root notes, low octave)
-        const bassNotes = this.generateBassPattern();
-        console.log('[ProceduralEngine] Bass pattern:', bassNotes);
+        const bassData = this.generateBassPattern();
+        console.log('[ProceduralEngine] Bass pattern:', bassData.pattern, 'subdivision:', bassData.subdivision);
         const self = this;
         this.patterns.bass = new Tone.Sequence((time, note) => {
             if (self.enabled.bass && note) {
                 console.log('[Bass] Playing:', note, 'at', time);
                 self.synths.bass.triggerAttackRelease(note, '4n', time);
             }
-        }, bassNotes, '2n');
+        }, bassData.pattern, bassData.subdivision);
 
         // Generate pad pattern (chords, mid octave)
         const padChords = this.generatePadPattern();
@@ -266,22 +266,67 @@ class ProceduralMusicEngine {
         // Get chord progression from current style
         const chordProg = this.randomChoice(style.chordProgressions);
         const root = this.scaleNotes[chordProg[0]] + bassOctave;
+        const fifth = this.scaleNotes[(chordProg[0] + 4) % 7] + bassOctave;
 
         // Different patterns based on style
+        // Note: Current subdivision is '2n' (half notes), 8 positions = 4 bars
+
         if (bassPattern === 'minimal' || bassPattern === 'sustained') {
-            // Minimal: mostly root, sparse
-            return [root, null, null, null, root, null, null, null];
-        } else if (bassPattern === 'pulsing' || bassPattern === 'driving') {
-            // Pulsing: steady 8th notes on root
-            return [root, null, root, null, root, null, root, null];
+            // Minimal: root on 1 of each bar
+            return {
+                pattern: [root, null, root, null, root, null, root, null],
+                subdivision: '2n'
+            };
+        } else if (bassPattern === 'pulsing') {
+            // Pulsing: steady quarter notes
+            return {
+                pattern: [root, root, root, root, root, root, root, root],
+                subdivision: '2n'
+            };
         } else if (bassPattern === 'rolling') {
-            // Rolling: root with some fifths
-            const fifth = this.scaleNotes[chordProg[0] + 4] ? this.scaleNotes[(chordProg[0] + 4) % 7] + bassOctave : root;
-            return [root, fifth, root, null, root, fifth, root, null];
+            // Rolling (synthwave): 8th notes, root-fifth pattern (16 positions = 2 bars)
+            return {
+                pattern: [
+                    root, fifth, root, fifth, root, fifth, root, fifth,
+                    root, fifth, root, fifth, root, fifth, root, fifth
+                ],
+                subdivision: '8n'
+            };
+        } else if (bassPattern === 'driving') {
+            // Driving (techno): steady 8th notes on root (16 positions = 2 bars)
+            return {
+                pattern: [
+                    root, root, root, root, root, root, root, root,
+                    root, root, root, root, root, root, root, root
+                ],
+                subdivision: '8n'
+            };
+        } else if (bassPattern === 'groovy' || bassPattern === 'funky') {
+            // Groovy: syncopated 8th note pattern (16 positions = 2 bars)
+            return {
+                pattern: [
+                    root, null, fifth, root, null, root, fifth, null,
+                    root, null, fifth, root, null, root, fifth, null
+                ],
+                subdivision: '8n'
+            };
+        } else if (bassPattern === 'trance-16ths') {
+            // Trance: fast 16th notes (32 positions = 2 bars)
+            return {
+                pattern: [
+                    root, root, root, root, fifth, fifth, root, root,
+                    root, root, root, root, fifth, fifth, root, root,
+                    root, root, root, root, fifth, fifth, root, root,
+                    root, root, root, root, fifth, fifth, root, root
+                ],
+                subdivision: '16n'
+            };
         } else {
-            // Default: root-fifth pattern (groovy, funky, root-fifth)
-            const fifth = this.scaleNotes[chordProg[0] + 4] ? this.scaleNotes[(chordProg[0] + 4) % 7] + bassOctave : root;
-            return [root, null, fifth, null, root, null, fifth, null];
+            // Default: root-fifth pattern
+            return {
+                pattern: [root, null, fifth, null, root, null, fifth, null],
+                subdivision: '2n'
+            };
         }
     }
 
