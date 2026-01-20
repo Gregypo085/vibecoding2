@@ -58,6 +58,13 @@
                 </div>
 
                 <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="useMarkov">
+                        Use Markov Chain (AI-learned progressions)
+                    </label>
+                </div>
+
+                <div class="control-group">
                     <label for="bpmSlider">Tempo (BPM)</label>
                     <input type="range" id="bpmSlider" min="70" max="130" step="1" value="90">
                     <span id="bpmValue">90</span>
@@ -84,6 +91,24 @@
                         <label for="drumPitch">Pitch</label>
                         <input type="range" id="drumPitch" min="-12" max="12" step="1" value="0">
                         <span id="drumPitchValue">0</span>
+                    </div>
+                    <div class="stem-controls">
+                        <label>
+                            <input type="checkbox" id="useEuclidean">
+                            Euclidean Rhythm
+                        </label>
+                    </div>
+                    <div id="euclideanControls" class="euclidean-controls" style="display: none;">
+                        <div class="stem-controls">
+                            <label for="euclideanPulses">Pulses (beats)</label>
+                            <input type="range" id="euclideanPulses" min="1" max="16" step="1" value="4">
+                            <span id="euclideanPulsesValue">4</span>
+                        </div>
+                        <div class="stem-controls">
+                            <label for="euclideanSteps">Steps (total)</label>
+                            <input type="range" id="euclideanSteps" min="4" max="32" step="1" value="16">
+                            <span id="euclideanStepsValue">16</span>
+                        </div>
                     </div>
                     <div class="stem-indicator" data-stem="drums"></div>
                 </div>

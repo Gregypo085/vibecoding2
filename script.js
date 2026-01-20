@@ -10,6 +10,10 @@ class ProceduralMusicEngine {
         this.drumPitchOffset = 0;
         this.currentStyle = 'synthwave';
         this.bassRhythmOverride = '16th'; // User's manual rhythm selection
+        this.useMarkovChain = false;
+        this.useEuclideanRhythm = false;
+        this.euclideanPulses = 4;
+        this.euclideanSteps = 16;
 
         // Tone.js synths (proof of concept - will be replaced with samples)
         this.synths = {
@@ -117,6 +121,24 @@ class ProceduralMusicEngine {
                 drumPatterns: [3, 4]  // minimal, no 4-on-floor
             }
         };
+
+        // Common chord progressions for Markov chain training (scale degrees)
+        this.markovTrainingData = [
+            // Classic progressions
+            [0, 5, 3, 6], [0, 3, 6, 5], [0, 5, 6, 4], [0, 4, 5, 3],
+            // Pop progressions
+            [0, 5, 3, 4], [0, 3, 5, 6], [0, 6, 3, 5], [0, 4, 5, 0],
+            // EDM progressions
+            [0, 0, 3, 0], [0, 6, 0, 6], [0, 3, 0, 3], [0, 5, 3, 6],
+            // Minor key classics
+            [0, 6, 3, 6], [0, 3, 6, 0], [0, 5, 3, 5], [0, 6, 4, 5],
+            // Extended progressions
+            [0, 5, 3, 6, 4, 5], [0, 3, 6, 5, 0, 4], [0, 6, 3, 5, 4, 0]
+        ];
+
+        // Train Markov chain on initialization
+        this.chordTransitions = this.learnChordProgressions(this.markovTrainingData);
+        console.log('[ProceduralEngine] Markov chain trained on', this.markovTrainingData.length, 'progressions');
     }
 
     // Initialize Tone.js audio context and instruments
@@ -242,9 +264,15 @@ class ProceduralMusicEngine {
             }
         }, arpNotes, '16n');
 
-        // Generate drum pattern (use current pattern)
-        const drumPattern = this.drumPatterns[this.currentDrumPattern].pattern;
-        console.log('[ProceduralEngine] Drum pattern (' + this.drumPatterns[this.currentDrumPattern].name + '):', drumPattern);
+        // Generate drum pattern (use Euclidean or predefined pattern)
+        let drumPattern;
+        if (this.useEuclideanRhythm) {
+            drumPattern = this.generateEuclideanRhythm(this.euclideanPulses, this.euclideanSteps, 'C1');
+            console.log('[ProceduralEngine] Euclidean drum pattern E(' + this.euclideanPulses + ',' + this.euclideanSteps + '):', drumPattern);
+        } else {
+            drumPattern = this.drumPatterns[this.currentDrumPattern].pattern;
+            console.log('[ProceduralEngine] Drum pattern (' + this.drumPatterns[this.currentDrumPattern].name + '):', drumPattern);
+        }
         this.patterns.drums = new Tone.Sequence((time, note) => {
             if (self.enabled.drums && note) {
                 // Apply pitch offset using Tone.Frequency.transpose (takes semitones)
@@ -343,8 +371,17 @@ class ProceduralMusicEngine {
         const chordOctave = '3';
         const style = this.styles[this.currentStyle];
 
-        // Get random chord progression from style
-        const chordProg = this.randomChoice(style.chordProgressions);
+        // Choose progression based on mode
+        let chordProg;
+        if (this.useMarkovChain) {
+            // Use Markov chain to generate progression
+            const startChord = 0; // Start on root
+            chordProg = this.generateMarkovProgression(this.chordTransitions, startChord, 4);
+            console.log('[ProceduralEngine] Markov-generated progression:', chordProg);
+        } else {
+            // Get random chord progression from style
+            chordProg = this.randomChoice(style.chordProgressions);
+        }
 
         // Build triads from the progression
         const chords = chordProg.map(degree => {
@@ -598,6 +635,40 @@ class ProceduralMusicEngine {
         console.log('[ProceduralEngine] Drum pitch offset set to:', semitones, 'semitones');
     }
 
+    // Toggle Markov chain for chord progressions
+    toggleMarkovChain(enabled) {
+        this.useMarkovChain = enabled;
+        console.log('[ProceduralEngine] Markov chain:', enabled ? 'enabled' : 'disabled');
+
+        // Regenerate if playing
+        if (this.isPlaying) {
+            this.regeneratePatterns();
+        }
+    }
+
+    // Toggle Euclidean rhythm for drums
+    toggleEuclideanRhythm(enabled) {
+        this.useEuclideanRhythm = enabled;
+        console.log('[ProceduralEngine] Euclidean rhythm:', enabled ? 'enabled' : 'disabled');
+
+        // Regenerate if playing
+        if (this.isPlaying) {
+            this.regeneratePatterns();
+        }
+    }
+
+    // Set Euclidean rhythm parameters
+    setEuclideanParams(pulses, steps) {
+        this.euclideanPulses = pulses;
+        this.euclideanSteps = steps;
+        console.log('[ProceduralEngine] Euclidean params: E(' + pulses + ',' + steps + ')');
+
+        // Regenerate if Euclidean is enabled and playing
+        if (this.isPlaying && this.useEuclideanRhythm) {
+            this.regeneratePatterns();
+        }
+    }
+
     // Change style and regenerate
     setStyle(styleName) {
         if (!this.styles[styleName]) {
@@ -634,6 +705,119 @@ class ProceduralMusicEngine {
     // Helper: random number in range (inclusive)
     randomInRange(min, max) {
         return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    // Euclidean Rhythm Generator
+    // E(k, n) - distribute k beats across n steps as evenly as possible
+    generateEuclideanRhythm(pulses, steps, note = 'C1') {
+        if (pulses >= steps) {
+            // Every step has a beat
+            return Array(steps).fill(note);
+        }
+
+        if (pulses === 0) {
+            // No beats
+            return Array(steps).fill(null);
+        }
+
+        // Bjorklund's algorithm
+        const pattern = [];
+        const counts = [];
+        const remainders = [];
+
+        let divisor = steps - pulses;
+        remainders.push(pulses);
+
+        let level = 0;
+        while (remainders[level] > 1) {
+            counts.push(Math.floor(divisor / remainders[level]));
+            remainders.push(divisor % remainders[level]);
+            divisor = remainders[level];
+            level++;
+        }
+        counts.push(divisor);
+
+        // Build the pattern
+        const buildPattern = (level) => {
+            if (level === -1) {
+                pattern.push(note);
+            } else if (level === -2) {
+                pattern.push(null);
+            } else {
+                for (let i = 0; i < counts[level]; i++) {
+                    buildPattern(level - 1);
+                }
+                if (remainders[level] !== 0) {
+                    buildPattern(level - 2);
+                }
+            }
+        };
+
+        buildPattern(level);
+        return pattern.slice(0, steps);
+    }
+
+    // Markov Chain for Chord Progressions
+    learnChordProgressions(progressions) {
+        // Build transition probability matrix
+        const transitions = {};
+
+        progressions.forEach(prog => {
+            for (let i = 0; i < prog.length - 1; i++) {
+                const current = prog[i];
+                const next = prog[i + 1];
+
+                if (!transitions[current]) {
+                    transitions[current] = {};
+                }
+                if (!transitions[current][next]) {
+                    transitions[current][next] = 0;
+                }
+                transitions[current][next]++;
+            }
+        });
+
+        // Convert counts to probabilities
+        for (const current in transitions) {
+            const total = Object.values(transitions[current]).reduce((a, b) => a + b, 0);
+            for (const next in transitions[current]) {
+                transitions[current][next] /= total;
+            }
+        }
+
+        return transitions;
+    }
+
+    // Generate chord progression using Markov chain
+    generateMarkovProgression(transitions, startChord, length = 4) {
+        const progression = [startChord];
+        let current = startChord;
+
+        for (let i = 1; i < length; i++) {
+            if (!transitions[current]) {
+                // If no transitions available, pick random from available chords
+                const allChords = Object.keys(transitions);
+                current = allChords[Math.floor(Math.random() * allChords.length)];
+                progression.push(current);
+                continue;
+            }
+
+            // Pick next chord based on probabilities
+            const rand = Math.random();
+            let cumulative = 0;
+
+            for (const next in transitions[current]) {
+                cumulative += transitions[current][next];
+                if (rand <= cumulative) {
+                    current = next;
+                    break;
+                }
+            }
+
+            progression.push(current);
+        }
+
+        return progression;
     }
 }
 
@@ -707,6 +891,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
             updateStatus('Start playback first');
         }
+    });
+
+    // Markov Chain Toggle
+    const useMarkov = document.getElementById('useMarkov');
+    useMarkov.addEventListener('change', (e) => {
+        engine.toggleMarkovChain(e.target.checked);
+        updateStatus(e.target.checked ? 'Markov chain enabled' : 'Style-based progressions');
+    });
+
+    // Euclidean Rhythm Toggle
+    const useEuclidean = document.getElementById('useEuclidean');
+    const euclideanControls = document.getElementById('euclideanControls');
+    useEuclidean.addEventListener('change', (e) => {
+        engine.toggleEuclideanRhythm(e.target.checked);
+        euclideanControls.style.display = e.target.checked ? 'block' : 'none';
+        updateStatus(e.target.checked ? 'Euclidean rhythm enabled' : 'Pattern-based drums');
+    });
+
+    // Euclidean Rhythm Parameters
+    const euclideanPulses = document.getElementById('euclideanPulses');
+    const euclideanPulsesValue = document.getElementById('euclideanPulsesValue');
+    euclideanPulses.addEventListener('input', (e) => {
+        const pulses = parseInt(e.target.value);
+        const steps = parseInt(euclideanSteps.value);
+        engine.setEuclideanParams(pulses, steps);
+        euclideanPulsesValue.textContent = pulses;
+    });
+
+    const euclideanSteps = document.getElementById('euclideanSteps');
+    const euclideanStepsValue = document.getElementById('euclideanStepsValue');
+    euclideanSteps.addEventListener('input', (e) => {
+        const steps = parseInt(e.target.value);
+        const pulses = parseInt(euclideanPulses.value);
+        engine.setEuclideanParams(pulses, steps);
+        euclideanStepsValue.textContent = steps;
     });
 
     // BPM/Tempo Control

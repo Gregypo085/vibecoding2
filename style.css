@@ -362,6 +362,28 @@ footer a:hover {
     text-decoration: underline;
 }
 
+/* Checkboxes */
+input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    cursor: pointer;
+    accent-color: var(--accent);
+}
+
+label {
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Euclidean Controls */
+.euclidean-controls {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+}
+
 /* ADSR Controls */
 .adsr-controls {
     display: flex;
