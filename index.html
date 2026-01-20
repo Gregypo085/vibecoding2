@@ -18,7 +18,15 @@
             <p class="subtitle">Procedural music generation experiments</p>
         </header>
 
+        <!-- Tab Navigation -->
+        <nav class="tab-navigation">
+            <button class="tab-button active" data-tab="procedural">Procedural</button>
+            <button class="tab-button" data-tab="guided">Guided</button>
+        </nav>
+
         <main>
+            <!-- Procedural Tab Content -->
+            <div id="proceduralTab" class="tab-content active">
             <!-- Master Controls -->
             <section class="master-controls">
                 <button id="playPause" class="main-button">Start</button>
@@ -163,6 +171,15 @@
                     <p><strong>Bass, Pad, and Drums still use Tone.js synths as placeholders.</p>
                 </details>
             </section>
+            </div>
+
+            <!-- Guided Tab Content -->
+            <div id="guidedTab" class="tab-content">
+                <section class="info">
+                    <p>Guided generation coming soon...</p>
+                    <p>This will feature pre-composed songs with optional variations.</p>
+                </section>
+            </div>
         </main>
 
         <footer>

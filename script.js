@@ -816,5 +816,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         drumPitchValue.textContent = semitones > 0 ? '+' + semitones : semitones;
     });
 
+    // Tab Navigation
+    document.querySelectorAll('.tab-button').forEach(button => {
+        button.addEventListener('click', () => {
+            const targetTab = button.dataset.tab;
+
+            // Remove active class from all buttons and tabs
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+            // Add active class to clicked button and corresponding tab
+            button.classList.add('active');
+            document.getElementById(targetTab + 'Tab').classList.add('active');
+
+            console.log('[VibeCoding2] Switched to', targetTab, 'tab');
+        });
+    });
+
     console.log('[VibeCoding2] Initialization complete');
 });
