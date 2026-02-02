@@ -1195,66 +1195,63 @@ class MIDIPatternLoader {
     }
 }
 
-// Guided Music Engine (pre-composed song mode)
-class GuidedMusicEngine extends ProceduralMusicEngine {
-    constructor() {
-        super();
-        this.isGuidedMode = true;
-    }
+// Global engine instance (shared between Procedural and Guided tabs)
+const engine = new ProceduralMusicEngine();
+const midiLoader = new MIDIPatternLoader();
 
-    // Initialize with pre-composed song settings
-    async initGuidedSong() {
-        console.log('[GuidedEngine] Loading VibeCoding Original song...');
+// Guided Mode Configuration
+const guidedMode = {
+    isInitialized: false,
+
+    // Initialize guided mode with MIDI pattern
+    async init() {
+        if (this.isInitialized) return true;
+
+        console.log('[GuidedMode] Loading VibeCoding Original song...');
 
         // Load MIDI bass pattern
         const patternData = await midiLoader.loadMidiFile('audio/midi/bass/VibeCoding Bass.mid');
         if (!patternData) {
-            console.error('[GuidedEngine] Failed to load VibeCoding Bass pattern');
+            console.error('[GuidedMode] Failed to load VibeCoding Bass pattern');
             return false;
         }
 
-        // Configure for MIDI pattern mode
-        this.midiPatternState.bassMode = 'midi-pattern';
-        this.midiPatternState.currentBassPattern = {
+        // Store the pattern for guided mode
+        this.midiPattern = {
             name: 'VibeCoding Bass',
             description: 'Original VibeCoding bass pattern',
             ...patternData
         };
-        this.midiPatternState.variationEnabled = false; // No variation in Guided mode
-        this.midiPatternState.variationIndices = [];
+
+        this.isInitialized = true;
+        console.log('[GuidedMode] VibeCoding Original loaded successfully');
+        return true;
+    },
+
+    // Start guided song
+    async start() {
+        // Configure engine for guided mode
+        engine.midiPatternState.bassMode = 'midi-pattern';
+        engine.midiPatternState.currentBassPattern = this.midiPattern;
+        engine.midiPatternState.variationEnabled = false;
+        engine.midiPatternState.variationIndices = [];
 
         // Set fixed parameters
-        this.currentScale = 'A minor';
-        this.updateScale('A minor');
-        this.setBPM(90);
-        this.currentStyle = 'synthwave';
+        engine.updateScale('A minor');
+        engine.setBPM(90);
+        engine.currentStyle = 'synthwave';
 
-        console.log('[GuidedEngine] VibeCoding Original loaded: A minor, 90 BPM, MIDI bass');
-        return true;
+        // Start playback
+        await engine.start();
+        console.log('[GuidedMode] Song started');
+    },
+
+    // Stop guided song
+    stop() {
+        engine.stop();
+        console.log('[GuidedMode] Song stopped');
     }
-
-    // Start the guided song
-    async startGuidedSong() {
-        if (this.isPlaying) return;
-
-        await Tone.start();
-        console.log('[GuidedEngine] Starting guided song...');
-
-        this.isPlaying = true;
-        Tone.Transport.bpm.value = 90;
-        Tone.Transport.start();
-
-        // Generate patterns using MIDI bass
-        this.regeneratePatterns();
-
-        return true;
-    }
-}
-
-// Global engine instances
-const engine = new ProceduralMusicEngine();
-const guidedEngine = new GuidedMusicEngine();
-const midiLoader = new MIDIPatternLoader();
+};
 
 // UI Helper Functions
 function updateStatus(message) {
@@ -1619,10 +1616,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const guidedMasterVolumeValue = document.getElementById('guidedMasterVolumeValue');
     const guidedStatus = document.getElementById('guidedStatus');
 
-    // Initialize guided engine
-    async function initGuidedEngine() {
-        await guidedEngine.init();
-        const success = await guidedEngine.initGuidedSong();
+    // Initialize guided mode
+    async function initGuidedMode() {
+        const success = await guidedMode.init();
         if (success) {
             guidedStatus.textContent = 'Ready - Click "Start Song" to play';
         } else {
@@ -1632,12 +1628,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Guided Play/Pause
     guidedPlayPause.addEventListener('click', async () => {
-        if (!guidedEngine.isPlaying) {
-            await guidedEngine.startGuidedSong();
+        if (!engine.isPlaying) {
+            await guidedMode.start();
             guidedPlayPause.textContent = 'Stop';
             guidedStatus.textContent = 'Playing VibeCoding Original...';
         } else {
-            guidedEngine.stop();
+            guidedMode.stop();
             guidedPlayPause.textContent = 'Start Song';
             guidedStatus.textContent = 'Stopped';
         }
@@ -1645,14 +1641,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Guided Key/Scale Selection
     guidedKeySelect.addEventListener('change', (e) => {
-        guidedEngine.updateScale(e.target.value);
+        engine.updateScale(e.target.value);
         guidedStatus.textContent = 'Changed to ' + e.target.value;
     });
 
     // Guided Master Volume
     guidedMasterVolume.addEventListener('input', (e) => {
         const value = parseFloat(e.target.value);
-        guidedEngine.setMasterVolume(value);
+        engine.setMasterVolume(value);
         guidedMasterVolumeValue.textContent = Math.round(value * 100) + '%';
     });
 
@@ -1663,13 +1659,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         slider.addEventListener('input', (e) => {
             const value = parseFloat(e.target.value);
-            guidedEngine.setStemVolume(stemName, value);
+            engine.setStemVolume(stemName, value);
             valueDisplay.textContent = Math.round(value * 100) + '%';
         });
     });
 
-    // Initialize guided engine on startup
-    initGuidedEngine();
+    // Initialize guided mode on startup
+    initGuidedMode();
 
     console.log('[VibeCoding2] Initialization complete');
 });
