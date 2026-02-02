@@ -16,6 +16,19 @@ class ProceduralMusicEngine {
         this.euclideanSteps = 16;
         this.currentChordProgression = null; // Stores current progression for bass/pad sync
 
+        // MIDI Pattern State
+        this.midiPatterns = {
+            bass: [],
+            drums: [],
+            melody: []
+        };
+        this.midiPatternState = {
+            bassMode: 'procedural',
+            currentBassPattern: null,
+            variationEnabled: true,
+            variationIndices: [0, 2, 4, 6]
+        };
+
         // Tone.js synths (proof of concept - will be replaced with samples)
         this.synths = {
             bass: null,
@@ -241,9 +254,15 @@ class ProceduralMusicEngine {
         // Stop existing patterns
         this.stopPatterns();
 
-        // Generate bass pattern (root notes, low octave)
-        const bassData = this.generateBassPattern();
-        console.log('[ProceduralEngine] Bass pattern:', bassData.pattern, 'subdivision:', bassData.subdivision);
+        // Generate bass pattern (root notes, low octave) - check for MIDI mode
+        let bassData;
+        if (this.midiPatternState.bassMode === 'midi-pattern' && this.midiPatternState.currentBassPattern) {
+            bassData = this.generateBassPatternFromMidi(this.midiPatternState.currentBassPattern);
+            console.log('[ProceduralEngine] Bass pattern (MIDI):', bassData.pattern, 'subdivision:', bassData.subdivision);
+        } else {
+            bassData = this.generateBassPattern();
+            console.log('[ProceduralEngine] Bass pattern (procedural):', bassData.pattern, 'subdivision:', bassData.subdivision);
+        }
         const self = this;
         this.patterns.bass = new Tone.Sequence((time, note) => {
             if (self.enabled.bass && note) {
@@ -418,6 +437,109 @@ class ProceduralMusicEngine {
                 subdivision: '8n'
             };
         }
+    }
+
+    // Generate bass pattern from MIDI file data
+    generateBassPatternFromMidi(patternData) {
+        console.log('[ProceduralEngine] Generating bass from MIDI pattern:', patternData.name);
+
+        // Transpose pattern to current scale
+        const transposedNotes = this.transposePatternToScale(patternData.notes);
+
+        // Apply variation rules if enabled
+        let finalNotes = transposedNotes;
+        if (this.midiPatternState.variationEnabled) {
+            finalNotes = this.applyVariationRules(transposedNotes);
+        }
+
+        // Build pattern array preserving timing
+        const pattern = finalNotes.map(noteData => noteData.note);
+        const subdivision = patternData.subdivision;
+
+        return {
+            pattern: pattern,
+            subdivision: subdivision
+        };
+    }
+
+    // Transpose MIDI pattern notes to current scale
+    transposePatternToScale(notes) {
+        return notes.map(noteData => {
+            if (!noteData.note) {
+                return noteData; // Preserve null/rest notes
+            }
+
+            // Extract note name without octave
+            const noteName = noteData.note.replace(/[0-9]/g, '');
+
+            // Find closest scale degree
+            const scaleDegree = this.findClosestScaleDegree(noteName, this.scaleNotes);
+
+            // Use bass octave (2)
+            const transposedNote = this.scaleNotes[scaleDegree] + '2';
+
+            return {
+                note: transposedNote,
+                time: noteData.time,
+                duration: noteData.duration,
+                velocity: noteData.velocity,
+                index: noteData.index
+            };
+        });
+    }
+
+    // Find closest scale degree for a given note
+    findClosestScaleDegree(noteName, scaleNotes) {
+        // Normalize note names (handle enharmonics)
+        const noteMap = {
+            'C': 0, 'C#': 1, 'Db': 1, 'D': 2, 'D#': 3, 'Eb': 3,
+            'E': 4, 'F': 5, 'F#': 6, 'Gb': 6, 'G': 7, 'G#': 8,
+            'Ab': 8, 'A': 9, 'A#': 10, 'Bb': 10, 'B': 11
+        };
+
+        const inputPitch = noteMap[noteName];
+        if (inputPitch === undefined) {
+            console.warn('[ProceduralEngine] Unknown note name:', noteName, '- defaulting to root');
+            return 0;
+        }
+
+        // Find closest scale note by pitch distance
+        let closestDegree = 0;
+        let minDistance = 12;
+
+        scaleNotes.forEach((scaleNote, degree) => {
+            const scaleNoteName = scaleNote.replace(/[0-9]/g, '');
+            const scalePitch = noteMap[scaleNoteName];
+            const distance = Math.abs((inputPitch - scalePitch + 12) % 12);
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestDegree = degree;
+            }
+        });
+
+        return closestDegree;
+    }
+
+    // Apply variation rules to specific note positions
+    applyVariationRules(notes) {
+        const indices = this.midiPatternState.variationIndices;
+
+        return notes.map((noteData, i) => {
+            // If this index should be varied and note is not null
+            if (indices.includes(i) && noteData.note) {
+                // Pick a random scale degree
+                const randomDegree = Math.floor(Math.random() * this.scaleNotes.length);
+                const variedNote = this.scaleNotes[randomDegree] + '2';
+
+                return {
+                    ...noteData,
+                    note: variedNote
+                };
+            }
+
+            return noteData;
+        });
     }
 
     // Generate pad pattern (chords)
@@ -931,8 +1053,208 @@ class ProceduralMusicEngine {
     }
 }
 
-// Global engine instance
+// MIDI Pattern Loader Class
+class MIDIPatternLoader {
+    constructor() {
+        this.manifest = null;
+        this.cachedPatterns = new Map();
+    }
+
+    // Load the patterns manifest
+    async loadManifest() {
+        try {
+            const response = await fetch('audio/midi/patterns-manifest.json');
+            if (!response.ok) {
+                throw new Error('Failed to load manifest: ' + response.statusText);
+            }
+            this.manifest = await response.json();
+            console.log('[MIDIPatternLoader] Manifest loaded:', this.manifest);
+            return this.manifest;
+        } catch (error) {
+            console.error('[MIDIPatternLoader] Error loading manifest:', error);
+            return null;
+        }
+    }
+
+    // Load and parse a MIDI file
+    async loadMidiFile(url) {
+        try {
+            // Check cache first
+            if (this.cachedPatterns.has(url)) {
+                console.log('[MIDIPatternLoader] Using cached pattern:', url);
+                return this.cachedPatterns.get(url);
+            }
+
+            console.log('[MIDIPatternLoader] Loading MIDI file:', url);
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error('Failed to load MIDI file: ' + response.statusText);
+            }
+
+            const arrayBuffer = await response.arrayBuffer();
+            const midi = new Midi(arrayBuffer);
+
+            console.log('[MIDIPatternLoader] MIDI file loaded. Tracks:', midi.tracks.length);
+
+            // Parse the first track with notes
+            const track = midi.tracks.find(t => t.notes.length > 0);
+            if (!track) {
+                throw new Error('No notes found in MIDI file');
+            }
+
+            const parsedData = this.parseMidiData(track);
+
+            // Cache the result
+            this.cachedPatterns.set(url, parsedData);
+
+            return parsedData;
+        } catch (error) {
+            console.error('[MIDIPatternLoader] Error loading MIDI file:', error);
+            return null;
+        }
+    }
+
+    // Parse MIDI track data into internal format
+    parseMidiData(track) {
+        console.log('[MIDIPatternLoader] Parsing MIDI track with', track.notes.length, 'notes');
+
+        // Extract note data
+        const notes = track.notes.map((note, index) => ({
+            note: note.name, // e.g., "C3", "D#4"
+            time: note.time,
+            duration: note.duration,
+            velocity: note.velocity,
+            index: index
+        }));
+
+        // Detect subdivision from note durations
+        const subdivision = this.detectSubdivision(notes);
+
+        // Quantize notes to grid
+        const quantizedNotes = this.quantizeToGrid(notes, subdivision);
+
+        console.log('[MIDIPatternLoader] Parsed', quantizedNotes.length, 'notes, subdivision:', subdivision);
+
+        return {
+            notes: quantizedNotes,
+            subdivision: subdivision,
+            originalTrack: track
+        };
+    }
+
+    // Detect the predominant subdivision from note durations
+    detectSubdivision(notes) {
+        if (notes.length === 0) return '16n';
+
+        // Calculate average duration
+        const avgDuration = notes.reduce((sum, n) => sum + n.duration, 0) / notes.length;
+
+        // Map duration to Tone.js subdivision
+        if (avgDuration >= 2.0) return '1n';      // Whole notes
+        if (avgDuration >= 1.0) return '2n';      // Half notes
+        if (avgDuration >= 0.5) return '4n';      // Quarter notes
+        if (avgDuration >= 0.25) return '8n';     // 8th notes
+        if (avgDuration >= 0.125) return '16n';   // 16th notes
+        return '32n';                              // 32nd notes
+    }
+
+    // Quantize notes to a rhythmic grid
+    quantizeToGrid(notes, subdivision) {
+        // Determine grid size based on subdivision
+        const subdivisionMap = {
+            '1n': 1, '2n': 2, '4n': 4, '8n': 8, '16n': 16, '32n': 32
+        };
+        const gridSize = subdivisionMap[subdivision] || 16;
+
+        // Get measure length (assuming 4/4 time)
+        const measureLength = 4; // 4 beats
+        const gridDuration = measureLength / gridSize;
+
+        // Build grid array
+        const grid = new Array(gridSize).fill(null);
+
+        // Snap each note to nearest grid position
+        notes.forEach(note => {
+            const gridPos = Math.round(note.time / gridDuration) % gridSize;
+            grid[gridPos] = {
+                note: note.note,
+                time: gridPos * gridDuration,
+                duration: note.duration,
+                velocity: note.velocity,
+                index: gridPos
+            };
+        });
+
+        return grid;
+    }
+
+    // Get patterns of a specific type (bass, drums, melody)
+    getPatternsByType(type) {
+        if (!this.manifest) return [];
+        return this.manifest[type] || [];
+    }
+}
+
+// Guided Music Engine (pre-composed song mode)
+class GuidedMusicEngine extends ProceduralMusicEngine {
+    constructor() {
+        super();
+        this.isGuidedMode = true;
+    }
+
+    // Initialize with pre-composed song settings
+    async initGuidedSong() {
+        console.log('[GuidedEngine] Loading VibeCoding Original song...');
+
+        // Load MIDI bass pattern
+        const patternData = await midiLoader.loadMidiFile('audio/midi/bass/VibeCoding Bass.mid');
+        if (!patternData) {
+            console.error('[GuidedEngine] Failed to load VibeCoding Bass pattern');
+            return false;
+        }
+
+        // Configure for MIDI pattern mode
+        this.midiPatternState.bassMode = 'midi-pattern';
+        this.midiPatternState.currentBassPattern = {
+            name: 'VibeCoding Bass',
+            description: 'Original VibeCoding bass pattern',
+            ...patternData
+        };
+        this.midiPatternState.variationEnabled = false; // No variation in Guided mode
+        this.midiPatternState.variationIndices = [];
+
+        // Set fixed parameters
+        this.currentScale = 'A minor';
+        this.updateScale('A minor');
+        this.setBPM(90);
+        this.currentStyle = 'synthwave';
+
+        console.log('[GuidedEngine] VibeCoding Original loaded: A minor, 90 BPM, MIDI bass');
+        return true;
+    }
+
+    // Start the guided song
+    async startGuidedSong() {
+        if (this.isPlaying) return;
+
+        await Tone.start();
+        console.log('[GuidedEngine] Starting guided song...');
+
+        this.isPlaying = true;
+        Tone.Transport.bpm.value = 90;
+        Tone.Transport.start();
+
+        // Generate patterns using MIDI bass
+        this.regeneratePatterns();
+
+        return true;
+    }
+}
+
+// Global engine instances
 const engine = new ProceduralMusicEngine();
+const guidedEngine = new GuidedMusicEngine();
+const midiLoader = new MIDIPatternLoader();
 
 // UI Helper Functions
 function updateStatus(message) {
@@ -1161,6 +1483,193 @@ document.addEventListener('DOMContentLoaded', async () => {
             console.log('[VibeCoding2] Switched to', targetTab, 'tab');
         });
     });
+
+    // MIDI Pattern Controls
+    const bassPatternMode = document.getElementById('bassPatternMode');
+    const midiPatternControls = document.getElementById('midiPatternControls');
+    const proceduralControls = document.getElementById('proceduralControls');
+    const midiPatternSelect = document.getElementById('midiPatternSelect');
+    const variationEnabled = document.getElementById('variationEnabled');
+    const variationIndices = document.getElementById('variationIndices');
+
+    // Load MIDI manifest and populate pattern dropdown
+    async function loadMidiManifest() {
+        const manifest = await midiLoader.loadManifest();
+        if (!manifest) {
+            console.error('[VibeCoding2] Failed to load MIDI manifest');
+            midiPatternSelect.innerHTML = '<option value="">No patterns available</option>';
+            return;
+        }
+
+        const bassPatterns = midiLoader.getPatternsByType('bass');
+        if (bassPatterns.length === 0) {
+            midiPatternSelect.innerHTML = '<option value="">No bass patterns found</option>';
+            return;
+        }
+
+        // Populate dropdown
+        midiPatternSelect.innerHTML = '<option value="">Select a pattern...</option>';
+        bassPatterns.forEach((pattern, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = pattern.name;
+            option.dataset.url = pattern.url;
+            option.dataset.description = pattern.description;
+            option.dataset.variationIndices = pattern.defaultVariationIndices.join(',');
+            midiPatternSelect.appendChild(option);
+        });
+
+        console.log('[VibeCoding2] Loaded', bassPatterns.length, 'bass patterns');
+    }
+
+    // Pattern Mode Toggle
+    bassPatternMode.addEventListener('change', (e) => {
+        const mode = e.target.value;
+        engine.midiPatternState.bassMode = mode;
+
+        if (mode === 'midi-pattern') {
+            midiPatternControls.style.display = 'block';
+            proceduralControls.style.display = 'none';
+            updateStatus('MIDI Pattern mode enabled - Select a pattern');
+        } else {
+            midiPatternControls.style.display = 'none';
+            proceduralControls.style.display = 'block';
+            updateStatus('Procedural mode enabled');
+        }
+
+        // Regenerate if playing
+        if (engine.isPlaying) {
+            engine.regeneratePatterns();
+        }
+    });
+
+    // Pattern Selection
+    midiPatternSelect.addEventListener('change', async (e) => {
+        const selectedIndex = e.target.value;
+        if (!selectedIndex) {
+            engine.midiPatternState.currentBassPattern = null;
+            return;
+        }
+
+        const option = e.target.options[e.target.selectedIndex];
+        const url = option.dataset.url;
+        const description = option.dataset.description;
+        const defaultIndices = option.dataset.variationIndices;
+
+        updateStatus('Loading MIDI pattern...');
+
+        // Load MIDI file
+        const patternData = await midiLoader.loadMidiFile(url);
+        if (!patternData) {
+            updateStatus('Failed to load MIDI pattern');
+            return;
+        }
+
+        // Store pattern info
+        engine.midiPatternState.currentBassPattern = {
+            name: option.textContent,
+            description: description,
+            ...patternData
+        };
+
+        // Set default variation indices
+        variationIndices.value = defaultIndices;
+        engine.midiPatternState.variationIndices = defaultIndices.split(',').map(i => parseInt(i.trim()));
+
+        updateStatus('Loaded: ' + option.textContent);
+        console.log('[VibeCoding2] Loaded pattern:', engine.midiPatternState.currentBassPattern);
+
+        // Regenerate if playing
+        if (engine.isPlaying) {
+            engine.regeneratePatterns();
+        }
+    });
+
+    // Variation Toggle
+    variationEnabled.addEventListener('change', (e) => {
+        engine.midiPatternState.variationEnabled = e.target.checked;
+        console.log('[VibeCoding2] Variation enabled:', e.target.checked);
+
+        // Regenerate if playing
+        if (engine.isPlaying && engine.midiPatternState.bassMode === 'midi-pattern') {
+            engine.regeneratePatterns();
+        }
+    });
+
+    // Variation Indices Input
+    variationIndices.addEventListener('change', (e) => {
+        const input = e.target.value;
+        const indices = input.split(',').map(i => parseInt(i.trim())).filter(i => !isNaN(i));
+        engine.midiPatternState.variationIndices = indices;
+        console.log('[VibeCoding2] Variation indices set to:', indices);
+
+        // Regenerate if playing
+        if (engine.isPlaying && engine.midiPatternState.bassMode === 'midi-pattern') {
+            engine.regeneratePatterns();
+        }
+    });
+
+    // Load MIDI manifest on startup
+    loadMidiManifest();
+
+    // ===== GUIDED TAB CONTROLS =====
+    const guidedPlayPause = document.getElementById('guidedPlayPause');
+    const guidedKeySelect = document.getElementById('guidedKeySelect');
+    const guidedMasterVolume = document.getElementById('guidedMasterVolume');
+    const guidedMasterVolumeValue = document.getElementById('guidedMasterVolumeValue');
+    const guidedStatus = document.getElementById('guidedStatus');
+
+    // Initialize guided engine
+    async function initGuidedEngine() {
+        await guidedEngine.init();
+        const success = await guidedEngine.initGuidedSong();
+        if (success) {
+            guidedStatus.textContent = 'Ready - Click "Start Song" to play';
+        } else {
+            guidedStatus.textContent = 'Error loading song - check console';
+        }
+    }
+
+    // Guided Play/Pause
+    guidedPlayPause.addEventListener('click', async () => {
+        if (!guidedEngine.isPlaying) {
+            await guidedEngine.startGuidedSong();
+            guidedPlayPause.textContent = 'Stop';
+            guidedStatus.textContent = 'Playing VibeCoding Original...';
+        } else {
+            guidedEngine.stop();
+            guidedPlayPause.textContent = 'Start Song';
+            guidedStatus.textContent = 'Stopped';
+        }
+    });
+
+    // Guided Key/Scale Selection
+    guidedKeySelect.addEventListener('change', (e) => {
+        guidedEngine.updateScale(e.target.value);
+        guidedStatus.textContent = 'Changed to ' + e.target.value;
+    });
+
+    // Guided Master Volume
+    guidedMasterVolume.addEventListener('input', (e) => {
+        const value = parseFloat(e.target.value);
+        guidedEngine.setMasterVolume(value);
+        guidedMasterVolumeValue.textContent = Math.round(value * 100) + '%';
+    });
+
+    // Guided Stem Volume Controls
+    document.querySelectorAll('#guidedTab .stem-volume').forEach(slider => {
+        const stemName = slider.id.replace('guided', '').replace('Volume', '').toLowerCase();
+        const valueDisplay = slider.nextElementSibling;
+
+        slider.addEventListener('input', (e) => {
+            const value = parseFloat(e.target.value);
+            guidedEngine.setStemVolume(stemName, value);
+            valueDisplay.textContent = Math.round(value * 100) + '%';
+        });
+    });
+
+    // Initialize guided engine on startup
+    initGuidedEngine();
 
     console.log('[VibeCoding2] Initialization complete');
 });

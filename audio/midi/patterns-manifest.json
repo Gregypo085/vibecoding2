@@ -1,0 +1,12 @@
+{
+  "bass": [
+    {
+      "name": "VibeCoding Bass",
+      "url": "audio/midi/bass/VibeCoding Bass.mid",
+      "description": "Original VibeCoding bass pattern at 90 BPM",
+      "defaultVariationIndices": [0, 2, 4, 6]
+    }
+  ],
+  "drums": [],
+  "melody": []
+}

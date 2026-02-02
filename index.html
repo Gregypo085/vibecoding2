@@ -10,6 +10,8 @@
     <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
     <!-- Tonal.js for music theory -->
     <script src="https://cdn.jsdelivr.net/npm/tonal/browser/tonal.min.js"></script>
+    <!-- @tonejs/midi for MIDI file parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -128,45 +130,72 @@
                         <button class="toggle-stem active" data-stem="bass">Active</button>
                     </div>
                     <div class="stem-controls">
-                        <label for="bassWaveform">Waveform</label>
-                        <select id="bassWaveform">
-                            <option value="sine">Sine</option>
-                            <option value="square">Square</option>
-                            <option value="sawtooth" selected>Saw</option>
-                            <option value="triangle">Triangle</option>
+                        <label for="bassPatternMode">Pattern Mode</label>
+                        <select id="bassPatternMode">
+                            <option value="procedural" selected>Procedural</option>
+                            <option value="midi-pattern">MIDI Pattern</option>
                         </select>
                     </div>
-                    <div class="stem-controls">
-                        <label for="bassRhythm">Rhythm</label>
-                        <select id="bassRhythm">
-                            <option value="whole">Whole Notes</option>
-                            <option value="half">Half Notes</option>
-                            <option value="quarter">Quarter Notes</option>
-                            <option value="8th">8th Notes</option>
-                            <option value="16th" selected>16th Notes</option>
-                            <option value="32nd">32nd Notes</option>
-                        </select>
+                    <div id="midiPatternControls" class="midi-pattern-controls" style="display: none;">
+                        <div class="stem-controls">
+                            <label for="midiPatternSelect">Pattern</label>
+                            <select id="midiPatternSelect">
+                                <option value="">Loading...</option>
+                            </select>
+                        </div>
+                        <div class="variation-rules">
+                            <label>
+                                <input type="checkbox" id="variationEnabled" checked>
+                                Enable Variation
+                            </label>
+                            <div class="stem-controls">
+                                <label for="variationIndices">Variation Indices (comma-separated)</label>
+                                <input type="text" id="variationIndices" value="0,2,4,6" placeholder="e.g., 0,2,4,6">
+                            </div>
+                        </div>
                     </div>
-                    <div class="adsr-controls">
-                        <div class="adsr-slider">
-                            <label>A</label>
-                            <input type="range" id="bassAttack" min="0" max="2000" step="1" value="1">
-                            <span class="adsr-value">1ms</span>
+                    <div id="proceduralControls" class="procedural-controls">
+                        <div class="stem-controls">
+                            <label for="bassWaveform">Waveform</label>
+                            <select id="bassWaveform">
+                                <option value="sine">Sine</option>
+                                <option value="square">Square</option>
+                                <option value="sawtooth" selected>Saw</option>
+                                <option value="triangle">Triangle</option>
+                            </select>
                         </div>
-                        <div class="adsr-slider">
-                            <label>D</label>
-                            <input type="range" id="bassDecay" min="0" max="2000" step="1" value="340">
-                            <span class="adsr-value">340ms</span>
+                        <div class="stem-controls">
+                            <label for="bassRhythm">Rhythm</label>
+                            <select id="bassRhythm">
+                                <option value="whole">Whole Notes</option>
+                                <option value="half">Half Notes</option>
+                                <option value="quarter">Quarter Notes</option>
+                                <option value="8th">8th Notes</option>
+                                <option value="16th" selected>16th Notes</option>
+                                <option value="32nd">32nd Notes</option>
+                            </select>
                         </div>
-                        <div class="adsr-slider">
-                            <label>S</label>
-                            <input type="range" id="bassSustain" min="0" max="100" step="1" value="1">
-                            <span class="adsr-value">1%</span>
-                        </div>
-                        <div class="adsr-slider">
-                            <label>R</label>
-                            <input type="range" id="bassRelease" min="0" max="3000" step="1" value="0">
-                            <span class="adsr-value">0ms</span>
+                        <div class="adsr-controls">
+                            <div class="adsr-slider">
+                                <label>A</label>
+                                <input type="range" id="bassAttack" min="0" max="2000" step="1" value="1">
+                                <span class="adsr-value">1ms</span>
+                            </div>
+                            <div class="adsr-slider">
+                                <label>D</label>
+                                <input type="range" id="bassDecay" min="0" max="2000" step="1" value="340">
+                                <span class="adsr-value">340ms</span>
+                            </div>
+                            <div class="adsr-slider">
+                                <label>S</label>
+                                <input type="range" id="bassSustain" min="0" max="100" step="1" value="1">
+                                <span class="adsr-value">1%</span>
+                            </div>
+                            <div class="adsr-slider">
+                                <label>R</label>
+                                <input type="range" id="bassRelease" min="0" max="3000" step="1" value="0">
+                                <span class="adsr-value">0ms</span>
+                            </div>
                         </div>
                     </div>
                     <div class="stem-indicator" data-stem="bass"></div>
@@ -207,9 +236,90 @@
 
             <!-- Guided Tab Content -->
             <div id="guidedTab" class="tab-content">
+                <!-- Master Controls for Guided Mode -->
+                <section class="master-controls">
+                    <button id="guidedPlayPause" class="main-button">Start Song</button>
+
+                    <div class="control-group">
+                        <label for="guidedKeySelect">Key/Scale:</label>
+                        <select id="guidedKeySelect">
+                            <option value="C major">C Major</option>
+                            <option value="D major">D Major</option>
+                            <option value="E major">E Major</option>
+                            <option value="G major">G Major</option>
+                            <option value="A minor" selected>A Minor</option>
+                            <option value="C minor">C Minor</option>
+                            <option value="E minor">E Minor</option>
+                            <option value="D minor">D Minor</option>
+                            <option value="C lydian">C Lydian</option>
+                            <option value="D lydian">D Lydian</option>
+                            <option value="A lydian">A Lydian</option>
+                            <option value="C dorian">C Dorian</option>
+                            <option value="D dorian">D Dorian</option>
+                            <option value="A dorian">A Dorian</option>
+                        </select>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="guidedMasterVolume">Master Volume</label>
+                        <input type="range" id="guidedMasterVolume" min="0" max="1" step="0.01" value="0.7">
+                        <span id="guidedMasterVolumeValue">70%</span>
+                    </div>
+                </section>
+
+                <!-- Song Info -->
                 <section class="info">
-                    <p>Guided generation coming soon...</p>
-                    <p>This will feature pre-composed songs with optional variations.</p>
+                    <h2 style="color: var(--accent); margin-bottom: 15px;">VibeCoding Original</h2>
+                    <p class="status" id="guidedStatus">Pre-composed song using your MIDI bass pattern at 90 BPM</p>
+                    <div style="margin-top: 15px;">
+                        <p><strong>Features:</strong></p>
+                        <ul style="list-style: none; padding: 0; color: var(--text-secondary);">
+                            <li>✓ Original MIDI bass pattern (VibeCoding Bass.mid)</li>
+                            <li>✓ Procedural pad chords in A minor</li>
+                            <li>✓ Arp melody using LeadSynthAnjuna samples</li>
+                            <li>✓ 4-on-floor drum pattern</li>
+                            <li>✓ Fixed tempo: 90 BPM</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- Stem Volume Controls -->
+                <section class="stems">
+                    <div class="stem-card">
+                        <h3>Drums</h3>
+                        <div class="stem-controls">
+                            <input type="range" class="stem-volume" id="guidedDrumsVolume" min="0" max="1" step="0.01" value="0.5">
+                            <span class="volume-value">50%</span>
+                        </div>
+                        <div class="stem-indicator" data-stem="drums"></div>
+                    </div>
+
+                    <div class="stem-card">
+                        <h3>Bass</h3>
+                        <div class="stem-controls">
+                            <input type="range" class="stem-volume" id="guidedBassVolume" min="0" max="1" step="0.01" value="0.5">
+                            <span class="volume-value">50%</span>
+                        </div>
+                        <div class="stem-indicator" data-stem="bass"></div>
+                    </div>
+
+                    <div class="stem-card">
+                        <h3>Pad</h3>
+                        <div class="stem-controls">
+                            <input type="range" class="stem-volume" id="guidedPadVolume" min="0" max="1" step="0.01" value="0.5">
+                            <span class="volume-value">50%</span>
+                        </div>
+                        <div class="stem-indicator" data-stem="pad"></div>
+                    </div>
+
+                    <div class="stem-card">
+                        <h3>Arp</h3>
+                        <div class="stem-controls">
+                            <input type="range" class="stem-volume" id="guidedArpVolume" min="0" max="1" step="0.01" value="0.5">
+                            <span class="volume-value">50%</span>
+                        </div>
+                        <div class="stem-indicator" data-stem="arp"></div>
+                    </div>
                 </section>
             </div>
         </main>
