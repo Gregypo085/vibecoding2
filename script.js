@@ -442,18 +442,23 @@ class ProceduralMusicEngine {
     // Generate bass pattern from MIDI file data
     generateBassPatternFromMidi(patternData) {
         console.log('[ProceduralEngine] Generating bass from MIDI pattern:', patternData.name);
+        console.log('[ProceduralEngine] Input notes:', patternData.notes);
+        console.log('[ProceduralEngine] Subdivision:', patternData.subdivision);
 
         // Transpose pattern to current scale
         const transposedNotes = this.transposePatternToScale(patternData.notes);
+        console.log('[ProceduralEngine] Transposed notes:', transposedNotes);
 
         // Apply variation rules if enabled
         let finalNotes = transposedNotes;
         if (this.midiPatternState.variationEnabled) {
             finalNotes = this.applyVariationRules(transposedNotes);
+            console.log('[ProceduralEngine] After variation:', finalNotes);
         }
 
         // Build pattern array preserving timing
-        const pattern = finalNotes.map(noteData => noteData.note);
+        const pattern = finalNotes.map(noteData => noteData ? noteData.note : null);
+        console.log('[ProceduralEngine] Final pattern:', pattern);
         const subdivision = patternData.subdivision;
 
         return {
@@ -1209,32 +1214,44 @@ const guidedMode = {
 
         console.log('[GuidedMode] Loading VibeCoding Original song...');
 
-        // Load MIDI bass pattern
-        const patternData = await midiLoader.loadMidiFile('audio/midi/bass/VibeCoding Bass.mid');
-        if (!patternData) {
-            console.error('[GuidedMode] Failed to load VibeCoding Bass pattern');
+        try {
+            // Load MIDI bass pattern
+            const patternData = await midiLoader.loadMidiFile('audio/midi/bass/VibeCoding Bass.mid');
+            if (!patternData) {
+                console.error('[GuidedMode] Failed to load VibeCoding Bass pattern');
+                return false;
+            }
+
+            console.log('[GuidedMode] MIDI pattern loaded:', patternData);
+
+            // Store the pattern for guided mode
+            this.midiPattern = {
+                name: 'VibeCoding Bass',
+                description: 'Original VibeCoding bass pattern',
+                ...patternData
+            };
+
+            this.isInitialized = true;
+            console.log('[GuidedMode] VibeCoding Original loaded successfully, notes:', this.midiPattern.notes.length);
+            return true;
+        } catch (error) {
+            console.error('[GuidedMode] Error during initialization:', error);
             return false;
         }
-
-        // Store the pattern for guided mode
-        this.midiPattern = {
-            name: 'VibeCoding Bass',
-            description: 'Original VibeCoding bass pattern',
-            ...patternData
-        };
-
-        this.isInitialized = true;
-        console.log('[GuidedMode] VibeCoding Original loaded successfully');
-        return true;
     },
 
     // Start guided song
     async start() {
+        console.log('[GuidedMode] Starting song...');
+        console.log('[GuidedMode] Audio context state before start:', Tone.context.state);
+
         // Configure engine for guided mode
         engine.midiPatternState.bassMode = 'midi-pattern';
         engine.midiPatternState.currentBassPattern = this.midiPattern;
         engine.midiPatternState.variationEnabled = false;
         engine.midiPatternState.variationIndices = [];
+
+        console.log('[GuidedMode] Engine configured with MIDI pattern:', engine.midiPatternState.currentBassPattern);
 
         // Set fixed parameters
         engine.updateScale('A minor');
@@ -1243,7 +1260,10 @@ const guidedMode = {
 
         // Start playback
         await engine.start();
-        console.log('[GuidedMode] Song started');
+
+        console.log('[GuidedMode] Song started, audio context state:', Tone.context.state);
+        console.log('[GuidedMode] Transport state:', Tone.Transport.state);
+        console.log('[GuidedMode] Bass pattern active:', engine.patterns.bass);
     },
 
     // Stop guided song
