@@ -19,12 +19,15 @@ class ProceduralMusicEngine {
         // MIDI Pattern State
         this.midiPatterns = {
             bass: [],
+            arp: [],
             drums: [],
             melody: []
         };
         this.midiPatternState = {
             bassMode: 'procedural',
             currentBassPattern: null,
+            arpMode: 'procedural',
+            currentArpPattern: null,
             variationEnabled: true,
             variationIndices: [0, 2, 4, 6]
         };
@@ -281,16 +284,23 @@ class ProceduralMusicEngine {
             }
         }, padChords, '1m');
 
-        // Generate arp pattern (melodic, high octave)
-        const arpNotes = this.generateArpPattern();
-        console.log('[ProceduralEngine] Arp pattern:', arpNotes);
+        // Generate arp pattern (melodic, high octave) - check for MIDI mode
+        let arpData;
+        if (this.midiPatternState.arpMode === 'midi-pattern' && this.midiPatternState.currentArpPattern) {
+            arpData = this.generateArpPatternFromMidi(this.midiPatternState.currentArpPattern);
+            console.log('[ProceduralEngine] Arp pattern (MIDI):', arpData.pattern, 'subdivision:', arpData.subdivision);
+        } else {
+            const arpNotes = this.generateArpPattern();
+            arpData = { pattern: arpNotes, subdivision: '16n' };
+            console.log('[ProceduralEngine] Arp pattern (procedural):', arpData.pattern);
+        }
         this.patterns.arp = new Tone.Sequence((time, note) => {
             if (self.enabled.arp && note) {
                 console.log('[Arp] Playing:', note, 'at', time);
                 // Use longer duration to allow delay tail to ring out (samples can overlap)
                 self.synths.arp.triggerAttackRelease(note, '1n', time);
             }
-        }, arpNotes, '16n');
+        }, arpData.pattern, arpData.subdivision);
 
         // Generate drum pattern (use Euclidean or predefined pattern)
         let drumPattern;
@@ -545,6 +555,54 @@ class ProceduralMusicEngine {
             }
 
             return noteData;
+        });
+    }
+
+    // Generate arp pattern from MIDI file data
+    generateArpPatternFromMidi(patternData) {
+        console.log('[ProceduralEngine] Generating arp from MIDI pattern:', patternData.name);
+        console.log('[ProceduralEngine] Arp input notes:', patternData.notes);
+        console.log('[ProceduralEngine] Arp subdivision:', patternData.subdivision);
+
+        // Transpose pattern to current scale (use octave 3 for arp - matches sample range)
+        const transposedNotes = this.transposePatternToScaleArp(patternData.notes);
+        console.log('[ProceduralEngine] Arp transposed notes:', transposedNotes);
+
+        // Build pattern array preserving timing
+        const pattern = transposedNotes.map(noteData => noteData ? noteData.note : null);
+        console.log('[ProceduralEngine] Arp final pattern:', pattern);
+        const subdivision = patternData.subdivision;
+
+        return {
+            pattern: pattern,
+            subdivision: subdivision
+        };
+    }
+
+    // Transpose MIDI pattern notes to current scale for arp (octave 3)
+    transposePatternToScaleArp(notes) {
+        return notes.map(noteData => {
+            // Handle null entries in the grid
+            if (!noteData || !noteData.note) {
+                return null; // Preserve null/rest notes
+            }
+
+            // Extract note name without octave
+            const noteName = noteData.note.replace(/[0-9]/g, '');
+
+            // Find closest scale degree
+            const scaleDegree = this.findClosestScaleDegree(noteName, this.scaleNotes);
+
+            // Use arp octave (3) to match sample range
+            const transposedNote = this.scaleNotes[scaleDegree] + '3';
+
+            return {
+                note: transposedNote,
+                time: noteData.time,
+                duration: noteData.duration,
+                velocity: noteData.velocity,
+                index: noteData.index
+            };
         });
     }
 
@@ -1264,8 +1322,10 @@ const midiLoader = new MIDIPatternLoader();
 // Guided Mode Configuration
 const guidedMode = {
     isInitialized: false,
+    bassPattern: null,
+    arpPattern: null,
 
-    // Initialize guided mode with MIDI pattern
+    // Initialize guided mode with MIDI patterns
     async init() {
         if (this.isInitialized) return true;
 
@@ -1273,23 +1333,40 @@ const guidedMode = {
 
         try {
             // Load MIDI bass pattern
-            const patternData = await midiLoader.loadMidiFile('audio/midi/bass/VibeCoding Bass.mid');
-            if (!patternData) {
+            const bassData = await midiLoader.loadMidiFile('audio/midi/bass/VibeCoding Bass.mid');
+            if (!bassData) {
                 console.error('[GuidedMode] Failed to load VibeCoding Bass pattern');
                 return false;
             }
 
-            console.log('[GuidedMode] MIDI pattern loaded:', patternData);
+            console.log('[GuidedMode] Bass MIDI pattern loaded:', bassData);
 
-            // Store the pattern for guided mode
-            this.midiPattern = {
+            // Store the bass pattern
+            this.bassPattern = {
                 name: 'VibeCoding Bass',
                 description: 'Original VibeCoding bass pattern',
-                ...patternData
+                ...bassData
+            };
+
+            // Load MIDI arp pattern
+            const arpData = await midiLoader.loadMidiFile('audio/midi/VibeCoding Arp.mid');
+            if (!arpData) {
+                console.error('[GuidedMode] Failed to load VibeCoding Arp pattern');
+                return false;
+            }
+
+            console.log('[GuidedMode] Arp MIDI pattern loaded:', arpData);
+
+            // Store the arp pattern
+            this.arpPattern = {
+                name: 'VibeCoding Arp',
+                description: 'Original VibeCoding arp pattern',
+                ...arpData
             };
 
             this.isInitialized = true;
-            console.log('[GuidedMode] VibeCoding Original loaded successfully, notes:', this.midiPattern.notes.length);
+            console.log('[GuidedMode] VibeCoding Original loaded successfully');
+            console.log('[GuidedMode] Bass notes:', this.bassPattern.notes.length, 'Arp notes:', this.arpPattern.notes.length);
             return true;
         } catch (error) {
             console.error('[GuidedMode] Error during initialization:', error);
@@ -1302,13 +1379,19 @@ const guidedMode = {
         console.log('[GuidedMode] Starting song...');
         console.log('[GuidedMode] Audio context state before start:', Tone.context.state);
 
-        // Configure engine for guided mode
+        // Configure engine for guided mode - Bass
         engine.midiPatternState.bassMode = 'midi-pattern';
-        engine.midiPatternState.currentBassPattern = this.midiPattern;
+        engine.midiPatternState.currentBassPattern = this.bassPattern;
         engine.midiPatternState.variationEnabled = false;
         engine.midiPatternState.variationIndices = [];
 
-        console.log('[GuidedMode] Engine configured with MIDI pattern:', engine.midiPatternState.currentBassPattern);
+        // Configure engine for guided mode - Arp
+        engine.midiPatternState.arpMode = 'midi-pattern';
+        engine.midiPatternState.currentArpPattern = this.arpPattern;
+
+        console.log('[GuidedMode] Engine configured with MIDI patterns');
+        console.log('[GuidedMode] Bass pattern:', engine.midiPatternState.currentBassPattern);
+        console.log('[GuidedMode] Arp pattern:', engine.midiPatternState.currentArpPattern);
 
         // Set fixed parameters
         engine.updateScale('A minor');
@@ -1321,6 +1404,7 @@ const guidedMode = {
         console.log('[GuidedMode] Song started, audio context state:', Tone.context.state);
         console.log('[GuidedMode] Transport state:', Tone.Transport.state);
         console.log('[GuidedMode] Bass pattern active:', engine.patterns.bass);
+        console.log('[GuidedMode] Arp pattern active:', engine.patterns.arp);
     },
 
     // Stop guided song

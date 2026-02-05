@@ -7,6 +7,14 @@
       "defaultVariationIndices": [0, 2, 4, 6]
     }
   ],
+  "arp": [
+    {
+      "name": "VibeCoding Arp",
+      "url": "audio/midi/VibeCoding Arp.mid",
+      "description": "Original VibeCoding arp pattern at 90 BPM",
+      "defaultVariationIndices": []
+    }
+  ],
   "drums": [],
   "melody": []
 }
