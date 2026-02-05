@@ -1720,6 +1720,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
+    // Guided Stem Toggle Buttons
+    document.querySelectorAll('#guidedTab .toggle-stem').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const stem = btn.dataset.stem;
+            const isActive = btn.classList.toggle('active');
+
+            btn.textContent = isActive ? 'Active' : 'Muted';
+            engine.toggleStem(stem, isActive);
+        });
+    });
+
     // Initialize guided mode on startup
     initGuidedMode();
 
