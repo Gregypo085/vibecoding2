@@ -1160,6 +1160,8 @@ class MIDIPatternLoader {
             if (interval > 0) intervals.push(interval);
         }
 
+        console.log(`[MIDIPatternLoader] Calculated ${intervals.length} intervals from ${notes.length} notes:`, intervals.slice(0, 10));
+
         if (intervals.length === 0) return '4n';
 
         // Find the minimum interval (this is likely the smallest rhythmic unit)
@@ -1172,13 +1174,31 @@ class MIDIPatternLoader {
         const beatsInterval = minInterval / secondsPerBeat;
 
         console.log(`[MIDIPatternLoader] Min interval: ${minInterval.toFixed(3)}s = ${beatsInterval.toFixed(2)} beats`);
+        console.log(`[MIDIPatternLoader] Selecting subdivision based on ${beatsInterval.toFixed(2)} beats (actual: ${beatsInterval})`);
 
-        if (beatsInterval >= 4) return '1n';      // Whole notes (4+ beats)
-        if (beatsInterval >= 2) return '2n';      // Half notes (2+ beats)
-        if (beatsInterval >= 1) return '4n';      // Quarter notes (1+ beat)
-        if (beatsInterval >= 0.5) return '8n';    // 8th notes (0.5+ beat)
-        if (beatsInterval >= 0.25) return '16n';  // 16th notes (0.25+ beat)
-        return '32n';                              // 32nd notes
+        // Use >= with small epsilon for floating point comparison
+        if (beatsInterval >= 3.9) {
+            console.log(`[MIDIPatternLoader] Returning 1n (whole notes)`);
+            return '1n';
+        }
+        if (beatsInterval >= 1.9) {
+            console.log(`[MIDIPatternLoader] Returning 2n (half notes)`);
+            return '2n';
+        }
+        if (beatsInterval >= 0.9) {
+            console.log(`[MIDIPatternLoader] Returning 4n (quarter notes)`);
+            return '4n';
+        }
+        if (beatsInterval >= 0.45) {
+            console.log(`[MIDIPatternLoader] Returning 8n (8th notes)`);
+            return '8n';
+        }
+        if (beatsInterval >= 0.2) {
+            console.log(`[MIDIPatternLoader] Returning 16n (16th notes)`);
+            return '16n';
+        }
+        console.log(`[MIDIPatternLoader] Returning 32n (32nd notes)`);
+        return '32n';
     }
 
     // Quantize notes to a rhythmic grid
