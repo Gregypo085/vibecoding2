@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MIDI Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.min.js"></script>
+</head>
+<body>
+    <h1>MIDI File Test</h1>
+    <button onclick="loadMidi()">Load VibeCoding Bass.mid</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function loadMidi() {
+            const output = document.getElementById('output');
+            output.textContent = 'Loading...';
+
+            try {
+                const response = await fetch('audio/midi/bass/VibeCoding Bass.mid');
+                const arrayBuffer = await response.arrayBuffer();
+                const midi = new Midi(arrayBuffer);
+
+                let result = `MIDI File Info:\n`;
+                result += `Name: ${midi.name}\n`;
+                result += `Duration: ${midi.duration} seconds\n`;
+                result += `Tracks: ${midi.tracks.length}\n\n`;
+
+                midi.tracks.forEach((track, i) => {
+                    result += `Track ${i}:\n`;
+                    result += `  Name: ${track.name}\n`;
+                    result += `  Notes: ${track.notes.length}\n`;
+                    result += `  Instrument: ${track.instrument.name}\n\n`;
+
+                    if (track.notes.length > 0) {
+                        result += `  First 20 notes:\n`;
+                        track.notes.slice(0, 20).forEach((note, j) => {
+                            result += `    ${j}: ${note.name} at ${note.time.toFixed(3)}s, duration ${note.duration.toFixed(3)}s, velocity ${note.velocity.toFixed(2)}\n`;
+                        });
+                    }
+                    result += '\n';
+                });
+
+                output.textContent = result;
+            } catch (error) {
+                output.textContent = 'Error: ' + error.message;
+                console.error(error);
+            }
+        }
+    </script>
+</body>
+</html>
