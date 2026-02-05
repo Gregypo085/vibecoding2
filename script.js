@@ -297,8 +297,8 @@ class ProceduralMusicEngine {
         this.patterns.arp = new Tone.Sequence((time, note) => {
             if (self.enabled.arp && note) {
                 console.log('[Arp] Playing:', note, 'at', time);
-                // Use longer duration to allow delay tail to ring out (samples can overlap)
-                self.synths.arp.triggerAttackRelease(note, '1n', time);
+                // Use short duration for staccato arp sound (not pad-like)
+                self.synths.arp.triggerAttackRelease(note, '16n', time);
             }
         }, arpData.pattern, arpData.subdivision);
 
