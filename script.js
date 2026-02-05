@@ -20,6 +20,7 @@ class ProceduralMusicEngine {
         this.midiPatterns = {
             bass: [],
             arp: [],
+            pad: [],
             drums: [],
             melody: []
         };
@@ -28,6 +29,10 @@ class ProceduralMusicEngine {
             currentBassPattern: null,
             arpMode: 'procedural',
             currentArpPattern: null,
+            padMode: 'procedural',
+            currentPadPattern: null,
+            drumsMode: 'procedural',
+            currentDrumsPattern: null,
             variationEnabled: true,
             variationIndices: [0, 2, 4, 6]
         };
@@ -274,15 +279,22 @@ class ProceduralMusicEngine {
             }
         }, bassData.pattern, bassData.subdivision);
 
-        // Generate pad pattern (chords, mid octave)
-        const padChords = this.generatePadPattern();
-        console.log('[ProceduralEngine] Pad pattern:', padChords);
+        // Generate pad pattern (chords, mid octave) - check for MIDI mode
+        let padData;
+        if (this.midiPatternState.padMode === 'midi-pattern' && this.midiPatternState.currentPadPattern) {
+            padData = this.generatePadPatternFromMidi(this.midiPatternState.currentPadPattern);
+            console.log('[ProceduralEngine] Pad pattern (MIDI):', padData.pattern, 'subdivision:', padData.subdivision);
+        } else {
+            const padChords = this.generatePadPattern();
+            padData = { pattern: padChords, subdivision: '1m' };
+            console.log('[ProceduralEngine] Pad pattern (procedural):', padData.pattern);
+        }
         this.patterns.pad = new Tone.Sequence((time, chord) => {
             if (self.enabled.pad && chord) {
                 console.log('[Pad] Playing:', chord, 'at', time);
                 self.synths.pad.triggerAttackRelease(chord, '2n', time);
             }
-        }, padChords, '1m');
+        }, padData.pattern, padData.subdivision);
 
         // Generate arp pattern (melodic, high octave) - check for MIDI mode
         let arpData;
@@ -302,14 +314,19 @@ class ProceduralMusicEngine {
             }
         }, arpData.pattern, arpData.subdivision);
 
-        // Generate drum pattern (use Euclidean or predefined pattern)
-        let drumPattern;
-        if (this.useEuclideanRhythm) {
-            drumPattern = this.generateEuclideanRhythm(this.euclideanPulses, this.euclideanSteps, 'C1');
-            console.log('[ProceduralEngine] Euclidean drum pattern E(' + this.euclideanPulses + ',' + this.euclideanSteps + '):', drumPattern);
+        // Generate drum pattern - check for MIDI mode first
+        let drumsData;
+        if (this.midiPatternState.drumsMode === 'midi-pattern' && this.midiPatternState.currentDrumsPattern) {
+            drumsData = this.generateDrumsPatternFromMidi(this.midiPatternState.currentDrumsPattern);
+            console.log('[ProceduralEngine] Drums pattern (MIDI):', drumsData.pattern, 'subdivision:', drumsData.subdivision);
+        } else if (this.useEuclideanRhythm) {
+            const drumPattern = this.generateEuclideanRhythm(this.euclideanPulses, this.euclideanSteps, 'C1');
+            drumsData = { pattern: drumPattern, subdivision: '8n' };
+            console.log('[ProceduralEngine] Euclidean drum pattern E(' + this.euclideanPulses + ',' + this.euclideanSteps + '):', drumsData.pattern);
         } else {
-            drumPattern = this.drumPatterns[this.currentDrumPattern].pattern;
-            console.log('[ProceduralEngine] Drum pattern (' + this.drumPatterns[this.currentDrumPattern].name + '):', drumPattern);
+            const drumPattern = this.drumPatterns[this.currentDrumPattern].pattern;
+            drumsData = { pattern: drumPattern, subdivision: '8n' };
+            console.log('[ProceduralEngine] Drum pattern (' + this.drumPatterns[this.currentDrumPattern].name + '):', drumsData.pattern);
         }
         this.patterns.drums = new Tone.Sequence((time, note) => {
             if (self.enabled.drums && note) {
@@ -318,7 +335,7 @@ class ProceduralMusicEngine {
                 console.log('[Drums] Playing:', transposedNote, 'at', time);
                 self.synths.drums.triggerAttackRelease(transposedNote, '8n', time);
             }
-        }, drumPattern, '8n');
+        }, drumsData.pattern, drumsData.subdivision);
 
         // Start all patterns
         this.startPatterns();
@@ -604,6 +621,59 @@ class ProceduralMusicEngine {
                 index: noteData.index
             };
         });
+    }
+
+    // Generate pad pattern from MIDI file data
+    generatePadPatternFromMidi(patternData) {
+        console.log('[ProceduralEngine] Generating pad from MIDI pattern:', patternData.name);
+
+        // For pad, we want chords. Convert single notes to simple chords by transposing to octave 3
+        const transposedNotes = patternData.notes.map(noteData => {
+            if (!noteData || !noteData.note) {
+                return null;
+            }
+
+            // Extract note name without octave
+            const noteName = noteData.note.replace(/[0-9]/g, '');
+            const scaleDegree = this.findClosestScaleDegree(noteName, this.scaleNotes);
+
+            // Create a simple triad: root, third, fifth
+            const root = this.scaleNotes[scaleDegree] + '3';
+            const third = this.scaleNotes[(scaleDegree + 2) % 7] + '3';
+            const fifth = this.scaleNotes[(scaleDegree + 4) % 7] + '3';
+
+            return {
+                note: [root, third, fifth], // Chord as array
+                time: noteData.time,
+                duration: noteData.duration,
+                velocity: noteData.velocity,
+                index: noteData.index
+            };
+        });
+
+        const pattern = transposedNotes.map(noteData => noteData ? noteData.note : null);
+        const subdivision = patternData.subdivision;
+
+        return {
+            pattern: pattern,
+            subdivision: subdivision
+        };
+    }
+
+    // Generate drums pattern from MIDI file data
+    generateDrumsPatternFromMidi(patternData) {
+        console.log('[ProceduralEngine] Generating drums from MIDI pattern:', patternData.name);
+
+        // Drums don't need transposition - just use the note as-is (e.g., C1, D1, etc.)
+        const pattern = patternData.notes.map(noteData => noteData ? noteData.note : null);
+        const subdivision = patternData.subdivision;
+
+        console.log('[ProceduralEngine] Drums final pattern:', pattern);
+
+        return {
+            pattern: pattern,
+            subdivision: subdivision
+        };
     }
 
     // Generate pad pattern (chords)
@@ -1324,6 +1394,8 @@ const guidedMode = {
     isInitialized: false,
     bassPattern: null,
     arpPattern: null,
+    padPattern: null,
+    drumsPattern: null,
 
     // Initialize guided mode with MIDI patterns
     async init() {
@@ -1338,10 +1410,6 @@ const guidedMode = {
                 console.error('[GuidedMode] Failed to load VibeCoding Bass pattern');
                 return false;
             }
-
-            console.log('[GuidedMode] Bass MIDI pattern loaded:', bassData);
-
-            // Store the bass pattern
             this.bassPattern = {
                 name: 'VibeCoding Bass',
                 description: 'Original VibeCoding bass pattern',
@@ -1354,19 +1422,39 @@ const guidedMode = {
                 console.error('[GuidedMode] Failed to load VibeCoding Arp pattern');
                 return false;
             }
-
-            console.log('[GuidedMode] Arp MIDI pattern loaded:', arpData);
-
-            // Store the arp pattern
             this.arpPattern = {
                 name: 'VibeCoding Arp',
                 description: 'Original VibeCoding arp pattern',
                 ...arpData
             };
 
+            // Load MIDI pad pattern
+            const padData = await midiLoader.loadMidiFile('audio/midi/VibeCoding Pad.mid');
+            if (!padData) {
+                console.error('[GuidedMode] Failed to load VibeCoding Pad pattern');
+                return false;
+            }
+            this.padPattern = {
+                name: 'VibeCoding Pad',
+                description: 'Original VibeCoding pad pattern',
+                ...padData
+            };
+
+            // Load MIDI drums pattern
+            const drumsData = await midiLoader.loadMidiFile('audio/midi/VibeCoding Drums.mid');
+            if (!drumsData) {
+                console.error('[GuidedMode] Failed to load VibeCoding Drums pattern');
+                return false;
+            }
+            this.drumsPattern = {
+                name: 'VibeCoding Drums',
+                description: 'Original VibeCoding drum pattern',
+                ...drumsData
+            };
+
             this.isInitialized = true;
             console.log('[GuidedMode] VibeCoding Original loaded successfully');
-            console.log('[GuidedMode] Bass notes:', this.bassPattern.notes.length, 'Arp notes:', this.arpPattern.notes.length);
+            console.log('[GuidedMode] Bass:', this.bassPattern.notes.length, 'Arp:', this.arpPattern.notes.length, 'Pad:', this.padPattern.notes.length, 'Drums:', this.drumsPattern.notes.length, 'notes');
             return true;
         } catch (error) {
             console.error('[GuidedMode] Error during initialization:', error);
@@ -1389,9 +1477,15 @@ const guidedMode = {
         engine.midiPatternState.arpMode = 'midi-pattern';
         engine.midiPatternState.currentArpPattern = this.arpPattern;
 
+        // Configure engine for guided mode - Pad
+        engine.midiPatternState.padMode = 'midi-pattern';
+        engine.midiPatternState.currentPadPattern = this.padPattern;
+
+        // Configure engine for guided mode - Drums
+        engine.midiPatternState.drumsMode = 'midi-pattern';
+        engine.midiPatternState.currentDrumsPattern = this.drumsPattern;
+
         console.log('[GuidedMode] Engine configured with MIDI patterns');
-        console.log('[GuidedMode] Bass pattern:', engine.midiPatternState.currentBassPattern);
-        console.log('[GuidedMode] Arp pattern:', engine.midiPatternState.currentArpPattern);
 
         // Set fixed parameters
         engine.updateScale('A minor');
@@ -1401,10 +1495,7 @@ const guidedMode = {
         // Start playback
         await engine.start();
 
-        console.log('[GuidedMode] Song started, audio context state:', Tone.context.state);
-        console.log('[GuidedMode] Transport state:', Tone.Transport.state);
-        console.log('[GuidedMode] Bass pattern active:', engine.patterns.bass);
-        console.log('[GuidedMode] Arp pattern active:', engine.patterns.arp);
+        console.log('[GuidedMode] Song started with all MIDI patterns');
     },
 
     // Stop guided song

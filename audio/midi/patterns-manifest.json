@@ -15,6 +15,21 @@
       "defaultVariationIndices": []
     }
   ],
-  "drums": [],
+  "pad": [
+    {
+      "name": "VibeCoding Pad",
+      "url": "audio/midi/VibeCoding Pad.mid",
+      "description": "Original VibeCoding pad pattern at 90 BPM",
+      "defaultVariationIndices": []
+    }
+  ],
+  "drums": [
+    {
+      "name": "VibeCoding Drums",
+      "url": "audio/midi/VibeCoding Drums.mid",
+      "description": "Original VibeCoding drum pattern at 90 BPM",
+      "defaultVariationIndices": []
+    }
+  ],
   "melody": []
 }
