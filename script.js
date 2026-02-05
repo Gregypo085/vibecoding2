@@ -1147,48 +1147,84 @@ class MIDIPatternLoader {
         };
     }
 
-    // Detect the predominant subdivision from note durations
+    // Detect the predominant subdivision from note spacing (not duration)
     detectSubdivision(notes) {
         if (notes.length === 0) return '16n';
+        if (notes.length === 1) return '4n';
 
-        // Calculate average duration
-        const avgDuration = notes.reduce((sum, n) => sum + n.duration, 0) / notes.length;
+        // Calculate spacing between consecutive notes (inter-onset intervals)
+        const intervals = [];
+        for (let i = 1; i < notes.length; i++) {
+            const interval = notes[i].time - notes[i-1].time;
+            if (interval > 0) intervals.push(interval);
+        }
 
-        // Map duration to Tone.js subdivision
-        if (avgDuration >= 2.0) return '1n';      // Whole notes
-        if (avgDuration >= 1.0) return '2n';      // Half notes
-        if (avgDuration >= 0.5) return '4n';      // Quarter notes
-        if (avgDuration >= 0.25) return '8n';     // 8th notes
-        if (avgDuration >= 0.125) return '16n';   // 16th notes
+        if (intervals.length === 0) return '4n';
+
+        // Find the minimum interval (this is likely the smallest rhythmic unit)
+        const minInterval = Math.min(...intervals);
+
+        // At 90 BPM, 1 beat = 0.667 seconds
+        const secondsPerBeat = 60 / 90;
+
+        // Map interval to Tone.js subdivision based on beats
+        const beatsInterval = minInterval / secondsPerBeat;
+
+        console.log(`[MIDIPatternLoader] Min interval: ${minInterval.toFixed(3)}s = ${beatsInterval.toFixed(2)} beats`);
+
+        if (beatsInterval >= 4) return '1n';      // Whole notes (4+ beats)
+        if (beatsInterval >= 2) return '2n';      // Half notes (2+ beats)
+        if (beatsInterval >= 1) return '4n';      // Quarter notes (1+ beat)
+        if (beatsInterval >= 0.5) return '8n';    // 8th notes (0.5+ beat)
+        if (beatsInterval >= 0.25) return '16n';  // 16th notes (0.25+ beat)
         return '32n';                              // 32nd notes
     }
 
     // Quantize notes to a rhythmic grid
     quantizeToGrid(notes, subdivision) {
+        if (notes.length === 0) return [];
+
+        // For long patterns, don't quantize - just use the notes as-is with their timing
+        // This preserves the original feel and rhythm from the MIDI file
+        const maxTime = Math.max(...notes.map(n => n.time));
+
+        // Assume 90 BPM, 4/4 time
+        const bpm = 90;
+        const beatsPerMeasure = 4;
+        const secondsPerBeat = 60 / bpm;
+        const secondsPerMeasure = secondsPerBeat * beatsPerMeasure;
+
         // Determine grid size based on subdivision
         const subdivisionMap = {
             '1n': 1, '2n': 2, '4n': 4, '8n': 8, '16n': 16, '32n': 32
         };
-        const gridSize = subdivisionMap[subdivision] || 16;
+        const stepsPerMeasure = subdivisionMap[subdivision] || 16;
+        const stepDuration = secondsPerMeasure / stepsPerMeasure;
 
-        // Get measure length (assuming 4/4 time)
-        const measureLength = 4; // 4 beats
-        const gridDuration = measureLength / gridSize;
+        // Calculate total number of measures needed
+        const totalMeasures = Math.ceil(maxTime / secondsPerMeasure);
+        const totalSteps = totalMeasures * stepsPerMeasure;
+
+        console.log(`[MIDIPatternLoader] Pattern is ${maxTime.toFixed(2)}s, ${totalMeasures} measures, ${totalSteps} steps at ${subdivision}`);
 
         // Build grid array
-        const grid = new Array(gridSize).fill(null);
+        const grid = new Array(totalSteps).fill(null);
 
         // Snap each note to nearest grid position
         notes.forEach(note => {
-            const gridPos = Math.round(note.time / gridDuration) % gridSize;
-            grid[gridPos] = {
-                note: note.note,
-                time: gridPos * gridDuration,
-                duration: note.duration,
-                velocity: note.velocity,
-                index: gridPos
-            };
+            const gridPos = Math.round(note.time / stepDuration);
+            if (gridPos >= 0 && gridPos < totalSteps) {
+                grid[gridPos] = {
+                    note: note.note,
+                    time: gridPos * stepDuration,
+                    duration: note.duration,
+                    velocity: note.velocity,
+                    index: gridPos
+                };
+            }
         });
+
+        console.log(`[MIDIPatternLoader] Grid has ${grid.filter(n => n !== null).length} notes out of ${totalSteps} positions`);
 
         return grid;
     }
