@@ -1450,8 +1450,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         masterVolumeValue.textContent = Math.round(value * 100) + '%';
     });
 
-    // Stem Volume Controls
-    document.querySelectorAll('.stem-volume').forEach(slider => {
+    // Stem Volume Controls (Procedural Tab Only)
+    document.querySelectorAll('#proceduralTab .stem-volume').forEach(slider => {
         const stemName = slider.id.replace('Volume', '').toLowerCase();
         const valueDisplay = slider.nextElementSibling;
 
@@ -1470,8 +1470,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // Stem Toggle Buttons
-    document.querySelectorAll('.toggle-stem').forEach(btn => {
+    // Stem Toggle Buttons (Procedural Tab Only)
+    document.querySelectorAll('#proceduralTab .toggle-stem').forEach(btn => {
         btn.addEventListener('click', () => {
             const stem = btn.dataset.stem;
             const isActive = btn.classList.toggle('active');
