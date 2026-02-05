@@ -470,8 +470,9 @@ class ProceduralMusicEngine {
     // Transpose MIDI pattern notes to current scale
     transposePatternToScale(notes) {
         return notes.map(noteData => {
-            if (!noteData.note) {
-                return noteData; // Preserve null/rest notes
+            // Handle null entries in the grid
+            if (!noteData || !noteData.note) {
+                return null; // Preserve null/rest notes
             }
 
             // Extract note name without octave
@@ -1717,6 +1718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const value = parseFloat(e.target.value);
             engine.setStemVolume(stemName, value);
             valueDisplay.textContent = Math.round(value * 100) + '%';
+            // Note: No auto-toggle logic for Guided tab - let user control manually
         });
     });
 
