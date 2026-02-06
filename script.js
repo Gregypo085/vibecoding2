@@ -1487,8 +1487,9 @@ const guidedMode = {
 
         console.log('[GuidedMode] Engine configured with MIDI patterns');
 
-        // Set fixed parameters
-        engine.updateScale('A minor');
+        // Set fixed parameters (use currently selected scale from UI)
+        const selectedScale = document.getElementById('guidedKeySelect').value;
+        engine.updateScale(selectedScale);
         engine.setBPM(90);
         engine.currentStyle = 'synthwave';
 
@@ -1893,8 +1894,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Guided Key/Scale Selection
     guidedKeySelect.addEventListener('change', (e) => {
-        engine.updateScale(e.target.value);
-        guidedStatus.textContent = 'Changed to ' + e.target.value;
+        const newScale = e.target.value;
+        engine.updateScale(newScale);
+        guidedStatus.textContent = 'Changed to ' + newScale;
+
+        // Regenerate patterns even if not playing (for next play)
+        if (engine.isPlaying) {
+            engine.regeneratePatterns();
+        }
     });
 
     // Guided Master Volume
